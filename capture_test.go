@@ -133,12 +133,12 @@ func TestCapture(t *testing.T) {
 
 func TestResult_Capture(t *testing.T) {
 	capture := command.New()
-	want, err := capture.Run(nil, "/bin/bash", "-c", "echo $A $B")
+	want, err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
 	if err != nil {
 		t.Fatalf("setup failed with error: %v", err)
 	}
 
-	got, err := want.Rerun(nil)
+	got, err := want.Rerun(context.Background())
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
