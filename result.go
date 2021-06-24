@@ -19,6 +19,7 @@ type Result struct {
 
 // CaptureContext executes an exec.CommandContext and captures the output as a Result and an error.
 // The Result will always be returned, even if it's incomplete.
+// The Result is re-runnable as seen in Result.Capture() and Result.CaptureContext()
 func CaptureContext(ctx context.Context, env []string, name string, args ...string) (cr Result, err error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -30,6 +31,7 @@ func CaptureContext(ctx context.Context, env []string, name string, args ...stri
 	return capture(cmd)
 }
 
+// Capture is the same as CaptureContext without caring about Contexts or timeouts.
 func Capture(env []string, name string, args ...string) (cr Result, err error) {
 	return CaptureContext(context.Background(), env, name, args...)
 }
@@ -76,8 +78,7 @@ func (cr Result) CaptureContext(ctx context.Context) (Result, error) {
 	return capture(cmd)
 }
 
-// Capture re-runs the Result's parameters in a new shell, recording
-// A result in the same way as command.Capture.
+// Capture is the same as CaptureContext without caring about Contexts or timeouts.
 func (cr Result) Capture() (Result, error) {
 	return cr.CaptureContext(context.Background())
 }
