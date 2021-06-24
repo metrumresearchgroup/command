@@ -11,7 +11,7 @@ steps:
     commands:
       - go mod tidy
       - go mod download
-      - go test ./...
+      - go test -v ./...
 
   - name: lint
     image: golang:1.16

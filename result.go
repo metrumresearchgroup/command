@@ -21,7 +21,7 @@ type Result struct {
 // The Result will always be returned, even if it's incomplete.
 func CaptureContext(ctx context.Context, env []string, name string, args ...string) (cr Result, err error) {
 	if ctx == nil {
-		ctx = context.TODO()
+		ctx = context.Background()
 	}
 
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -66,7 +66,7 @@ func errToExitCode(err error) int {
 // A result in the same way as command.CaptureContext.
 func (cr Result) CaptureContext(ctx context.Context) (Result, error) {
 	if ctx == nil {
-		ctx = context.TODO()
+		ctx = context.Background()
 	}
 
 	// suppress:G204

@@ -24,7 +24,7 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "invalid command",
 			args: args{
-				ctx:     context.TODO(),
+				ctx:     context.Background(),
 				command: "asdfasdf",
 			},
 			wantErr: true,
@@ -36,7 +36,7 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "success return",
 			args: args{
-				ctx:     context.TODO(),
+				ctx:     context.Background(),
 				command: "/bin/bash",
 				args:    []string{"-c", "exit 0"},
 			},
@@ -49,7 +49,7 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "nonzero return",
 			args: args{
-				ctx:     context.TODO(),
+				ctx:     context.Background(),
 				command: "/bin/bash",
 				args:    []string{"-c", "exit 1"},
 			},
@@ -66,7 +66,7 @@ func TestCaptureContext(t *testing.T) {
 			name: "ctx canceled",
 			args: args{
 				ctx: func() context.Context {
-					ctx, cancel := context.WithCancel(context.TODO())
+					ctx, cancel := context.WithCancel(context.Background())
 					cancel()
 
 					return ctx
@@ -79,7 +79,7 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "captures stderr",
 			args: args{
-				ctx:     context.TODO(),
+				ctx:     context.Background(),
 				command: "/bin/bash",
 				args:    []string{"-c", `echo "message" 1>&2`},
 			},
@@ -92,7 +92,7 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "captures env",
 			args: args{
-				ctx: context.TODO(),
+				ctx: context.Background(),
 				env: []string{
 					"A=A",
 					"B=B",
