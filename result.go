@@ -9,7 +9,7 @@ import (
 	"path"
 )
 
-// Result represents a single execution of a *exec.Cmd
+// Result represents a single execution of a *exec.Cmd.
 type Result struct {
 	// Name is the command to run, similar to exec.Command's first parameter
 	Name string `json:"name"`
@@ -51,7 +51,7 @@ func CaptureContext(ctx context.Context, env []string, name string, args ...stri
 }
 
 // Capture executes an exec.CommandContext and captures the output as a Result and an error. It has no control over
-// the context.Context. If you need to inject context.Context, use CaptureContext
+// the context.Context. If you need to inject context.Context, use CaptureContext.
 func Capture(env []string, name string, args ...string) (cr Result, err error) {
 	return CaptureContext(context.Background(), env, name, args...)
 }

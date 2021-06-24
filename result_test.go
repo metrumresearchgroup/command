@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"command"
+	"github.com/metrumresearchgroup/command"
 )
 
 //goland:noinspection GoNilness
