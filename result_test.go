@@ -8,6 +8,7 @@ import (
 	"command"
 )
 
+//goland:noinspection GoNilness
 func TestCaptureContext(t *testing.T) {
 	type args struct {
 		ctx     context.Context
