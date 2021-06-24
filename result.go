@@ -17,12 +17,16 @@ type Result struct {
 	// Args contains the command line called, without argv[0].
 	Args []string `json:"args,omitempty"`
 
-	// Env contains the environment passed into CaptureContext
+	// Env contains the environment passed into CaptureContext.
 	Env []string `json:"env,omitempty"`
 
-	//
+	// Output provides the combined output from the command as a string.
 	Output string `json:"output,omitempty"`
 
+	// ExitCode holds the exit code returned by the call.
+	// It will be 0 (default value) even if a command didn't run due to error.
+	// You MUST check error when calling any of the functions below, as the
+	// exec.ExitError type contains additional context for failure.
 	ExitCode int `json:"exitCode"`
 }
 
