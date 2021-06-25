@@ -9,7 +9,9 @@ import (
 	"os/exec"
 )
 
-// Capture represents the state for a run of a command.
+// Capture represents the state for a run of a command. Most of the
+// comments on these types come from exec.Cmd, as this is our underlying
+// implementation.
 type Capture struct {
 	// Name is the name to run.
 	//
@@ -44,7 +46,7 @@ type Capture struct {
 	// It will be 0 (default value) even if a name didn't run due to error.
 	// You MUST check error when calling any of the functions below, as the
 	// exec.ExitError type contains additional context for failure.
-	ExitCode int `json:"exitCode"`
+	ExitCode int `json:"exit_code"`
 }
 
 // Option is a value setters type given to the New function to set the optional parts of configuration.

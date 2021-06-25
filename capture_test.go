@@ -39,7 +39,7 @@ func TestCapture(t *testing.T) {
 			name: "success return",
 			args: args{
 				ctx:  context.Background(),
-				dir:  ".",
+				dir:  ".", // this is explicitly stated to test the WithDir below.
 				name: "/bin/bash",
 				args: []string{"-c", "exit 0"},
 			},
