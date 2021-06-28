@@ -1,3 +1,5 @@
+// +build linux darwin
+
 package command_test
 
 import (
@@ -9,27 +11,28 @@ import (
 )
 
 //goland:noinspection GoNilness
-func TestCaptureContext(t *testing.T) {
+func TestCapture(t *testing.T) {
 	type args struct {
-		ctx     context.Context
-		env     []string
-		command string
-		args    []string
+		ctx  context.Context
+		dir  string
+		env  []string
+		name string
+		args []string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    command.Result
+		want    command.Capture
 		wantErr bool
 	}{
 		{
-			name: "invalid command",
+			name: "invalid name",
 			args: args{
-				ctx:     context.Background(),
-				command: "asdfasdf",
+				ctx:  context.Background(),
+				name: "asdfasdf",
 			},
 			wantErr: true,
-			want: command.Result{
+			want: command.Capture{
 				Output:   "",
 				ExitCode: 0,
 			},
@@ -37,12 +40,13 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "success return",
 			args: args{
-				ctx:     context.Background(),
-				command: "/bin/bash",
-				args:    []string{"-c", "exit 0"},
+				ctx:  context.Background(),
+				dir:  ".", // this is explicitly stated to test the WithDir below.
+				name: "/bin/bash",
+				args: []string{"-c", "exit 0"},
 			},
 			wantErr: false,
-			want: command.Result{
+			want: command.Capture{
 				Output:   "",
 				ExitCode: 0,
 			},
@@ -50,12 +54,12 @@ func TestCaptureContext(t *testing.T) {
 		{
 			name: "nonzero return",
 			args: args{
-				ctx:     context.Background(),
-				command: "/bin/bash",
-				args:    []string{"-c", "exit 1"},
+				ctx:  context.Background(),
+				name: "/bin/bash",
+				args: []string{"-c", "exit 1"},
 			},
 			wantErr: true,
-			want: command.Result{
+			want: command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 1"},
 				Env:      nil,
@@ -72,20 +76,20 @@ func TestCaptureContext(t *testing.T) {
 
 					return ctx
 				}(),
-				command: "/bin/bash",
-				args:    []string{"-c", "exit 0"},
+				name: "/bin/bash",
+				args: []string{"-c", "exit 0"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "captures stderr",
 			args: args{
-				ctx:     context.Background(),
-				command: "/bin/bash",
-				args:    []string{"-c", `echo "message" 1>&2`},
+				ctx:  context.Background(),
+				name: "/bin/bash",
+				args: []string{"-c", `echo "message" 1>&2`},
 			},
 			wantErr: false,
-			want: command.Result{
+			want: command.Capture{
 				Output:   "message\n",
 				ExitCode: 0,
 			},
@@ -98,11 +102,11 @@ func TestCaptureContext(t *testing.T) {
 					"A=A",
 					"B=B",
 				},
-				command: "/bin/bash",
-				args:    []string{"-c", "echo $A $B"},
+				name: "/bin/bash",
+				args: []string{"-c", "echo $A $B"},
 			},
 			wantErr: false,
-			want: command.Result{
+			want: command.Capture{
 				Output:   "A B\n",
 				ExitCode: 0,
 			},
@@ -110,9 +114,11 @@ func TestCaptureContext(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := command.CaptureContext(tt.args.ctx, tt.args.env, tt.args.command, tt.args.args...)
+			capture := command.New(command.WithDir(tt.args.dir), command.WithEnv(tt.args.env))
+			got, err := capture.Run(tt.args.ctx, tt.args.name, tt.args.args...)
+
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Capture() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -127,13 +133,14 @@ func TestCaptureContext(t *testing.T) {
 	}
 }
 
-func TestResult_Capture(t *testing.T) {
-	want, err := command.Capture(nil, "/bin/bash", "-c", "echo $A $B")
+func TestRerun(t *testing.T) {
+	capture := command.New()
+	want, err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
 	if err != nil {
 		t.Fatalf("setup failed with error: %v", err)
 	}
 
-	got, err := want.Capture()
+	got, err := want.Rerun(context.Background())
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -152,5 +159,9 @@ func TestResult_Capture(t *testing.T) {
 
 	if want.Name != got.Name {
 		t.Errorf("mismatch in name: wanted %s, got %s", want.Name, got.Name)
+	}
+
+	if want.Dir != got.Dir {
+		t.Errorf("mismatch in dir: wanted %s, got %s", want.Dir, got.Dir)
 	}
 }
