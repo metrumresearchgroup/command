@@ -133,7 +133,7 @@ func TestCapture(t *testing.T) {
 	}
 }
 
-func TestResult_Capture(t *testing.T) {
+func TestRerun(t *testing.T) {
 	capture := command.New()
 	want, err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
 	if err != nil {
