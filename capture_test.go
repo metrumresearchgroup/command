@@ -209,7 +209,6 @@ func OutputMatcher(t *testing.T, want, got command.Capture) {
 }
 
 func NameMatcher(t *testing.T, want, got command.Capture) {
-	t.Helper()
 	t.Run("Name", func(t *testing.T) {
 		t.Run("Equal", func(t *testing.T) {
 			if want.Name != got.Name {
@@ -220,7 +219,6 @@ func NameMatcher(t *testing.T, want, got command.Capture) {
 }
 
 func ArgsMatcher(t *testing.T, want, got command.Capture) {
-	t.Helper()
 	t.Run("Args", func(t *testing.T) {
 		t.Run("DeepEqual", func(t *testing.T) {
 			if !reflect.DeepEqual(want.Args, got.Args) {
@@ -243,7 +241,6 @@ func ArgsMatcher(t *testing.T, want, got command.Capture) {
 }
 
 func DirMatcher(t *testing.T, want, got command.Capture) {
-	t.Helper()
 	t.Run("Dir", func(t *testing.T) {
 		if want.Dir != "" {
 			t.Run("Equal", func(t *testing.T) {
@@ -256,7 +253,6 @@ func DirMatcher(t *testing.T, want, got command.Capture) {
 }
 
 func ExitCodeMatcher(t *testing.T, want, got command.Capture) {
-	t.Helper()
 	t.Run("ExitCode", func(t *testing.T) {
 		t.Run("Equal", func(t *testing.T) {
 			if want.ExitCode != got.ExitCode {

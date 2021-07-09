@@ -129,10 +129,6 @@ func (c *Capture) doCapture(cmd *exec.Cmd) (err error) {
 
 // errToExitCode converts potential errors to a nil-able int error code.
 func errToExitCode(err error) int {
-	if err == nil {
-		return 0
-	}
-
 	var exitError *exec.ExitError
 	if errors.As(err, &exitError) {
 		return exitError.ExitCode()
