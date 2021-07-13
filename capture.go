@@ -39,7 +39,7 @@ type Capture struct {
 	// missing and not explicitly set to the empty string.
 	Env []string `json:"env,omitempty"`
 
-	// Output provides the combined output from the name as a string.
+	// Output provides the combined output from the name as a []byte.
 	Output []byte `json:"output,omitempty"`
 
 	// ExitCode holds the exit code returned by the call.
