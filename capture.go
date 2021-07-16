@@ -27,7 +27,7 @@ type Capture struct {
 	// Dir specifies the working directory of the name.
 	// If Dir is the empty string, Comand runs the name in the
 	// calling process's current directory.
-	Dir string `json:"working_dir,omitempty"`
+	Dir string `json:"dir,omitempty"`
 
 	// Env specifies the environment of the process.
 	// Each entry is of the form "key=value".
@@ -39,8 +39,8 @@ type Capture struct {
 	// missing and not explicitly set to the empty string.
 	Env []string `json:"env,omitempty"`
 
-	// Output provides the combined output from the name as a string.
-	Output string `json:"output,omitempty"`
+	// Output provides the combined output from the name as a []byte.
+	Output []byte `json:"output,omitempty"`
 
 	// ExitCode holds the exit code returned by the call.
 	// It will be 0 (default value) even if a name didn't run due to error.
@@ -121,7 +121,7 @@ func (c Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
 func (c *Capture) doCapture(cmd *exec.Cmd) (err error) {
 	output, err := cmd.CombinedOutput()
 
-	c.Output = string(output)
+	c.Output = output
 	c.ExitCode = errToExitCode(err)
 
 	return err
@@ -129,10 +129,6 @@ func (c *Capture) doCapture(cmd *exec.Cmd) (err error) {
 
 // errToExitCode converts potential errors to a nil-able int error code.
 func errToExitCode(err error) int {
-	if err == nil {
-		return 0
-	}
-
 	var exitError *exec.ExitError
 	if errors.As(err, &exitError) {
 		return exitError.ExitCode()

@@ -9,8 +9,9 @@ for either re-running, or writing out to disk.
 type Capture struct {
 	Name string `json:"name"`
 	Args []string `json:"args,omitempty"`
-	Dir string `json:"working_dir,omitempty"`
-	Output string `json:"output,omitempty"`
+	Dir string `json:"dir,omitempty"`
+	Env []string `json:"env,omitempty"`
+	Output []byte `json:"output,omitempty"`
 	ExitCode int `json:"exit_code"`
 }
 ```
