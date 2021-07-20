@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"time"
+
+	"github.com/metrumresearchgroup/command/pipes"
 )
 
 // Capture represents the state for a run of a command. Most of the
@@ -47,6 +50,14 @@ type Capture struct {
 	// You MUST check error when calling any of the functions below, as the
 	// exec.ExitError type contains additional context for failure.
 	ExitCode int `json:"exit_code"`
+
+	// tmpCommand stores the running command in the interactive Start style.
+	tmpCmd *exec.Cmd
+
+	// tmpCancel is the cancel func for the context. This will cancel a clone
+	// of the original context, which gives us upper cancels a chance to run out
+	// their lifecycle.
+	tmpCancel func()
 }
 
 // Option is a value setters type given to the New function to set the optional parts of configuration.
@@ -68,13 +79,13 @@ func WithDir(dir string) Option {
 }
 
 // New creates a Capture struct with (optionally) Env and Dir set on it.
-func New(options ...Option) Capture {
+func New(options ...Option) *Capture {
 	var c Capture
 	for _, option := range options {
 		option(&c)
 	}
 
-	return c
+	return &c
 }
 
 // Run executes a name and returns Capture and error.
@@ -86,31 +97,103 @@ func New(options ...Option) Capture {
 //
 // The parameters behave as they do in *exec.Cmd, so passing in a nil env will inherit the parent environment,
 // and passing an empty slice will create and empty environment.
-func (c Capture) Run(ctx context.Context, name string, args ...string) (Capture, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	if len(name) == 0 {
-		return c, errors.New("name empty")
-	}
-
+func (c *Capture) Run(ctx context.Context, name string, args ...string) error {
 	c.Name = name
 	c.Args = args
 
 	cmd := c.makeExecCmd(ctx)
 	err := c.doCapture(cmd)
 
-	return c, err
+	return err
+}
+
+// Start starts a exec.Cmd with stdin/out/err set to the values in io, a name, and args, and returns Capture and Error
+// indicating whether the start was successful, and to provide with re-runnable operation.
+//
+// The results are similar to Run, where an *exec.ExitError will fire in the case of failure to run.
+func (c *Capture) Start(ctx context.Context, io *pipes.Pipes, name string, args ...string) error {
+	c.Name = name
+	c.Args = args
+
+	// This inner cancel seems redundant but it doesn't notify upward. This allows upper lifecycles to finish.
+	ctx, c.tmpCancel = context.WithCancel(ctx)
+
+	cmd := c.makeExecCmd(ctx)
+	wireIO(cmd, io)
+
+	if err := cmd.Start(); err != nil {
+		c.ExitCode = errToExitCode(err)
+
+		return err
+	}
+
+	c.tmpCmd = cmd
+
+	return nil
+}
+
+// Restart runs a previously run command, binding pipes before operation.
+func (c *Capture) Restart(ctx context.Context, io *pipes.Pipes) error {
+	return c.Start(ctx, io, c.Name, c.Args...)
+}
+
+// Stop ends a Started capture. Returns a copy of the capture,
+func (c *Capture) Stop() error {
+	if c.tmpCancel == nil || c.tmpCmd == nil {
+		return errors.New("command was not started")
+	}
+
+	err := c.doStop()
+
+	c.ExitCode = errToExitCode(err)
+
+	return err
+}
+
+func (c *Capture) doStop() error {
+	if c.tmpCancel != nil {
+		c.tmpCancel()
+	}
+
+	timeout := time.NewTimer(time.Second * 10)
+	ticker := time.NewTicker(time.Second)
+
+	if c.tmpCmd == nil {
+		return errors.New("wasn't running")
+	}
+
+	if c.tmpCmd.ProcessState == nil {
+		c.tmpCmd = nil
+
+		return nil // process is stopped
+	}
+
+	for {
+		select {
+		case <-timeout.C:
+			ticker.Stop()
+
+			return errors.New("timeout reached")
+		case <-ticker.C:
+			if !c.tmpCmd.ProcessState.Exited() {
+				continue
+			}
+
+			ticker.Stop()
+			timeout.Stop()
+
+			return c.tmpCmd.Wait()
+		}
+	}
 }
 
 // Rerun re-runs the Capture's parameters in a new shell, recording
 // A result to it in the same way as Run.
-func (c Capture) Rerun(ctx context.Context) (Capture, error) {
+func (c *Capture) Rerun(ctx context.Context) error {
 	return c.Run(ctx, c.Name, c.Args...)
 }
 
-func (c Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
+func (c *Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
 	cmd.Env = c.Env
 	cmd.Dir = c.Dir
@@ -118,13 +201,19 @@ func (c Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
 	return cmd
 }
 
-func (c *Capture) doCapture(cmd *exec.Cmd) (err error) {
+func (c *Capture) doCapture(cmd *exec.Cmd) error {
 	output, err := cmd.CombinedOutput()
 
 	c.Output = output
 	c.ExitCode = errToExitCode(err)
 
 	return err
+}
+
+func wireIO(cmd *exec.Cmd, pipes *pipes.Pipes) {
+	cmd.Stdin = pipes.Stdin
+	cmd.Stdout = pipes.Stdout
+	cmd.Stderr = pipes.Stderr
 }
 
 // errToExitCode converts potential errors to a nil-able int error code.
