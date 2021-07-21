@@ -111,7 +111,7 @@ func (c *Capture) Run(ctx context.Context, name string, args ...string) error {
 // indicating whether the start was successful, and to provide with re-runnable operation.
 //
 // The results are similar to Run, where an *exec.ExitError will fire in the case of failure to run.
-func (c *Capture) Start(ctx context.Context, io *pipes.Pipes, name string, args ...string) error {
+func (c *Capture) Start(ctx context.Context, name string, args ...string) (*pipes.Pipes, error) {
 	c.Name = name
 	c.Args = args
 
@@ -119,22 +119,26 @@ func (c *Capture) Start(ctx context.Context, io *pipes.Pipes, name string, args 
 	ctx, c.tmpCancel = context.WithCancel(ctx)
 
 	cmd := c.makeExecCmd(ctx)
-	wireIO(cmd, io)
+
+	p := pipes.New()
+	if err := p.Attach(cmd); err != nil {
+		return nil, err
+	}
 
 	if err := cmd.Start(); err != nil {
 		c.ExitCode = errToExitCode(err)
 
-		return err
+		return p, err
 	}
 
 	c.tmpCmd = cmd
 
-	return nil
+	return p, nil
 }
 
 // Restart runs a previously run command, binding pipes before operation.
-func (c *Capture) Restart(ctx context.Context, io *pipes.Pipes) error {
-	return c.Start(ctx, io, c.Name, c.Args...)
+func (c *Capture) Restart(ctx context.Context) (*pipes.Pipes, error) {
+	return c.Start(ctx, c.Name, c.Args...)
 }
 
 // Stop ends a Started capture. Returns a copy of the capture,
@@ -168,6 +172,15 @@ func (c *Capture) doStop() error {
 		return nil // process is stopped
 	}
 
+	if c.tmpCmd.ProcessState.Exited() {
+		return nil
+	} else {
+		err := c.tmpCmd.Process.Kill()
+		if err != nil {
+			return err
+		}
+	}
+
 	for {
 		select {
 		case <-timeout.C:
@@ -176,11 +189,11 @@ func (c *Capture) doStop() error {
 			return errors.New("timeout reached")
 		case <-ticker.C:
 			if !c.tmpCmd.ProcessState.Exited() {
+				ticker.Stop()
+				timeout.Stop()
+
 				continue
 			}
-
-			ticker.Stop()
-			timeout.Stop()
 
 			return c.tmpCmd.Wait()
 		}
@@ -208,12 +221,6 @@ func (c *Capture) doCapture(cmd *exec.Cmd) error {
 	c.ExitCode = errToExitCode(err)
 
 	return err
-}
-
-func wireIO(cmd *exec.Cmd, pipes *pipes.Pipes) {
-	cmd.Stdin = pipes.Stdin
-	cmd.Stdout = pipes.Stdout
-	cmd.Stderr = pipes.Stderr
 }
 
 // errToExitCode converts potential errors to a nil-able int error code.

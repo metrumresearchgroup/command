@@ -2,60 +2,37 @@ package pipes
 
 import (
 	"io"
-	"os"
+	"os/exec"
 )
 
 type Pipes struct {
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Stdin  io.WriteCloser
+	Stdout io.ReadCloser
+	Stderr io.ReadCloser
 }
 
-type Option func(*Pipes)
-
-func New(options ...Option) *Pipes {
-	if len(options) == 0 {
-		options = []Option{
-			WithStdin(os.Stdin),
-			WithStdout(os.Stdout),
-			WithStderr(os.Stderr),
-		}
-	}
-
-	var p Pipes
-	for _, option := range options {
-		option(&p)
-	}
-
-	// back-fill missing values
-
-	if p.Stdin == nil {
-		p.Stdin = os.Stdin
-	}
-	if p.Stdout == nil {
-		p.Stdout = os.Stdout
-	}
-	if p.Stderr == nil {
-		p.Stderr = os.Stderr
-	}
-
-	return &p
+func New() *Pipes {
+	return &Pipes{}
 }
 
-func WithStdin(stdin io.Reader) func(*Pipes) {
-	return func(p *Pipes) {
-		p.Stdin = stdin
+func (p *Pipes) Attach(cmd *exec.Cmd) error {
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
 	}
-}
+	p.Stdin = stdin
 
-func WithStdout(stdout io.Writer) func(*Pipes) {
-	return func(p *Pipes) {
-		p.Stdout = stdout
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
 	}
-}
+	p.Stdout = stdout
 
-func WithStderr(stderr io.Writer) func(*Pipes) {
-	return func(p *Pipes) {
-		p.Stderr = stderr
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
 	}
+	p.Stderr = stderr
+
+	return nil
 }

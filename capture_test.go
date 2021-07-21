@@ -3,16 +3,14 @@
 package command_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
-	"reflect"
 	"testing"
 
 	"github.com/metrumresearchgroup/command"
 	"github.com/metrumresearchgroup/command/pipes"
+	. "github.com/metrumresearchgroup/command/wrapt"
 )
 
 //goland:noinspection GoNilness
@@ -54,6 +52,7 @@ func TestCapture_Run(t *testing.T) {
 			want: &command.Capture{
 				Output:   []byte(""),
 				ExitCode: 0,
+				Dir:      ".",
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 0"},
 			},
@@ -132,248 +131,222 @@ func TestCapture_Run(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(testingT *testing.T) {
+			t := WrapT(testingT)
 			capture := command.New(command.WithDir(tt.args.dir), command.WithEnv(tt.args.env))
 			err := capture.Run(tt.args.ctx, tt.args.name, tt.args.args...)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Run() error = %v, wantErrStart %v", err, tt.wantErr)
-				return
-			}
+			t.AssertError(tt.wantErr, err)
 
 			AllMatcher(t, tt.want, capture)
 		})
 	}
 }
 
-func TestCapture_Rerun(t *testing.T) {
+func TestCapture_Rerun(tt *testing.T) {
+	t := WrapT(tt)
+
 	capture := command.New()
 
 	err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
-	if err != nil {
-		t.Fatalf("setup failed with error: %v", err)
+	if t.A.NoError(err, "capture.Run()") {
+		return
 	}
 
 	want := *capture
 
 	err = capture.Rerun(context.Background())
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if t.A.NoError(err) {
+		return
 	}
 
 	AllMatcher(t, &want, capture)
 }
 
-func TestCapture_Marshaling(t *testing.T) {
+func TestCapture_Marshaling(tt *testing.T) {
+	t := WrapT(tt)
+
 	cmd := command.New(command.WithEnv([]string{"A=A"}), command.WithDir("/tmp"))
 
-	if err := cmd.Run(context.Background(), "ls", "-la"); err != nil {
-		t.Fatalf("unexpected error")
+	err := cmd.Run(context.Background(), "ls", "-la")
+	if t.A.NoError(err) {
+		return
 	}
 
 	marshaled, err := json.Marshal(cmd)
-	if err != nil {
-		t.Fatalf("Marshal(): expected no error")
+	if t.A.NoError(err) {
+		return
 	}
 
-	var got *command.Capture
-
+	got := new(command.Capture)
 	err = json.Unmarshal(marshaled, got)
-	if err != nil {
-		t.Fatalf("Unmarshal(): expected no error")
-	}
+	t.A.NoError(err)
 
 	AllMatcher(t, cmd, got)
 }
 
-func AllMatcher(t *testing.T, want, got *command.Capture) {
-	ExitCodeMatcher(t, want, got)
-	OutputMatcher(t, want, got)
-	ArgsMatcher(t, want, got)
-	NameMatcher(t, want, got)
-	DirMatcher(t, want, got)
-}
-
-func OutputMatcher(t *testing.T, want, got *command.Capture) {
-	t.Run("Output", func(t *testing.T) {
-		t.Run("NilNess", func(t *testing.T) {
-			if (want.Output == nil) != (got.Output == nil) {
-				t.Errorf("want.Output == nil: %t, got.Output == nil: %t", want.Output == nil, got.Output == nil)
-			}
-		})
-
-		t.Run("DeepEqual", func(t *testing.T) {
-			if !reflect.DeepEqual(want.Output, got.Output) {
-				t.Errorf("want.Output: '%v', got.Output: '%v'", want.Output, got.Output)
-			}
-		})
+func AllMatcher(t *T, want, got *command.Capture) {
+	t.RunFatal("matchers", func(t *T) {
+		ExitCodeMatcher(t, want, got)
+		OutputMatcher(t, want, got)
+		ArgsMatcher(t, want, got)
+		NameMatcher(t, want, got)
+		DirMatcher(t, want, got)
 	})
 }
 
-func NameMatcher(t *testing.T, want, got *command.Capture) {
-	t.Run("Name", func(t *testing.T) {
-		t.Run("Equal", func(t *testing.T) {
-			if want.Name != got.Name {
-				t.Errorf("want.Name: %s, got.Name: %s", want.Name, got.Name)
-			}
-		})
+func OutputMatcher(t *T, want, got *command.Capture) {
+	t.Run("Output", func(t *T) {
+		t.A.Equal(want.Output, got.Output)
 	})
 }
 
-func ArgsMatcher(t *testing.T, want, got *command.Capture) {
-	t.Run("Args", func(t *testing.T) {
-		t.Run("DeepEqual", func(t *testing.T) {
-			if !reflect.DeepEqual(want.Args, got.Args) {
-				t.Errorf("want.Args: %v, got.Args: %v", want.Args, got.Args)
-			}
-		})
-
-		t.Run("NilNess", func(t *testing.T) {
-			if (want.Args == nil) != (got.Args == nil) {
-				t.Errorf("want.Args == nil: %t, got.Args == nil: %t", want.Args == nil, got.Args == nil)
-			}
-		})
-
-		t.Run("Length", func(t *testing.T) {
-			if len(want.Args) != len(got.Args) {
-				t.Errorf("len(want.Args): %d, len(got.Args): %d", len(want.Args), len(got.Args))
-			}
-		})
+func NameMatcher(t *T, want, got *command.Capture) {
+	t.Run("Name", func(t *T) {
+		t.A.Equal(want.Name, got.Name)
 	})
 }
 
-func DirMatcher(t *testing.T, want, got *command.Capture) {
-	t.Run("Dir", func(t *testing.T) {
-		if want.Dir != "" {
-			t.Run("Equal", func(t *testing.T) {
-				if want.Dir != got.Dir {
-					t.Errorf("want.Dir: %s, got.Dir: %s", want.Dir, got.Dir)
-				}
-			})
-		}
+func ArgsMatcher(t *T, want, got *command.Capture) {
+	t.Run("Args", func(t *T) {
+		t.A.Equal(want.Args, got.Args)
 	})
 }
 
-func ExitCodeMatcher(t *testing.T, want, got *command.Capture) {
-	t.Run("ExitCode", func(t *testing.T) {
-		t.Run("Equal", func(t *testing.T) {
-			if want.ExitCode != got.ExitCode {
-				t.Errorf("want.ExitCode: %d, got.ExitCode: %d", want.ExitCode, got.ExitCode)
-			}
-		})
+func DirMatcher(t *T, want, got *command.Capture) {
+	t.Run("Dir", func(t *T) {
+		t.A.Equal(want.Dir, got.Dir)
 	})
 }
 
-func TestStartStop(t *testing.T) {
+func ExitCodeMatcher(t *T, want, got *command.Capture) {
+	t.Run("ExitCode", func(t *T) {
+		t.A.Equal(want.ExitCode, got.ExitCode)
+	})
+}
+
+func TestStartStop(tt *testing.T) {
+	t := WrapT(tt)
+
 	type args struct {
-		ctx   context.Context
-		dir   string
-		env   []string
-		name  string
-		args  []string
-		input []byte
+		ctx  context.Context
+		dir  string
+		env  []string
+		name string
+		args []string
 	}
+
 	tests := []struct {
 		name string
 		args args
-		want command.Capture
-		wantErrStart,
-		wantErrStop bool
-		wantOutput []byte
+		act  func(t *T, capture *command.Capture) (p *pipes.Pipes, err error)
+		test func(t *T, capture *command.Capture, p *pipes.Pipes, err error)
 	}{
 		{
-			name: "echo",
+			name: "stop without start",
 			args: args{
-				ctx:   context.Background(),
-				name:  "/bin/bash",
-				input: []byte("echo helo\n"),
+				ctx:  context.Background(),
+				name: "cat",
 			},
-			want:         command.Capture{},
-			wantErrStart: false,
-			wantErrStop:  false,
-			wantOutput:   []byte("hello"),
+			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+				err = capture.Stop()
+
+				return
+			},
+			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
+				t.ValidateError("want error", true, err)
+			},
+		},
+		{
+			name: "start",
+			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+				return capture.Start(context.Background(), "cat")
+			},
+			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
+				t.A.NotNil(p)
+				t.A.NoError(err)
+
+				err = capture.Stop()
+				t.A.NoError(err)
+			},
+		},
+		{
+			name: "start and use input",
+			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+				p, err = capture.Start(context.Background(), "cat")
+				t.A.NoError(err)
+
+				count, err := p.Stdin.Write([]byte("hello\n"))
+				t.A.Equal(6, count)
+				t.A.NoError(err)
+
+				return p, nil
+			},
+			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
+				err = p.Stdin.Close()
+				t.A.NoError(err)
+
+				pos, err := io.ReadAll(p.Stdout)
+				t.A.NoError(err)
+
+				err = capture.Stop()
+				t.A.NoError(err)
+
+				t.A.Equal([]byte("hello\n"), pos)
+			},
 		},
 	}
+
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stdin := new(bytes.Buffer)
-			stdout := new(bytes.Buffer)
-			stderr := new(bytes.Buffer)
-
-			p := pipes.New(pipes.WithStdin(stdin), pipes.WithStdout(stdout), pipes.WithStderr(stderr))
-
+		t.Run(tt.name, func(t *T) {
 			capture := command.New(command.WithDir(tt.args.dir), command.WithEnv(tt.args.env))
+			t.RunFatal("check tt.act", func(t *T) {
+				t.A.NotNil(tt.act)
+			})
+			t.RunFatal("check tt.test", func(t *T) {
+				t.A.NotNil(tt.test)
+			})
 
+			var ps *pipes.Pipes
+			var err error
+			t.RunFatal("tt.act", func(t *T) {
+				ps, err = tt.act(t, capture)
+			})
+
+			t.RunFatal("tt.test", func(t *T) {
+				tt.test(t, capture, ps, err)
+			})
+		})
+		/*
 			// false stop:
 			err := capture.Stop()
-			t.Run("Stop() without Start(): Should Error", func(t *testing.T) {
-				if err == nil {
-					t.Error("expected not started error")
-				}
-			})
+			t.ValidateError("Stop() without Start()", true, err)
 
-			err = capture.Start(tt.args.ctx, p, tt.args.name, tt.args.args...)
+			p, err := capture.Start(tt.args.ctx, tt.args.name, tt.args.args...)
+			t.ValidateError("Start()", false, err)
 
-			t.Run(fmt.Sprintf("Start(): wantErrStart: %t", tt.wantErrStart), func(t *testing.T) {
-				if (err != nil) != tt.wantErrStart {
-					t.Fatalf("error: %v", err)
-					return
-				}
-			})
-
-			_, err = stdin.Write(tt.args.input)
-			if err != nil && err != io.EOF {
-				t.Fatalf("stdin.Write(): got error writing buffer: %v", err)
+			if _, err = p.Stdin.Write(tt.args.input); err != nil && err != io.EOF {
+				t.Fatalf("stdin.Write(): err: %v", err)
 			}
 
-			output := stdout.Bytes()
+			err = p.Stdin.Close()
+			t.StopOnError("stdin.Close()", err)
 
-			FatalRun(t, fmt.Sprintf("stdout.Read() = %s:", string(tt.wantOutput)), func(t *testing.T) {
-				if !reflect.DeepEqual(tt.wantOutput, output) {
-					t.Fatalf("got: %s", output)
-				}
+			output, err := io.ReadAll(p.Stdout)
+			t.StopOnError("stdout.Readall()", err)
+
+			t.Run("stdout.Read()", func(t *T) {
+				t.A.Equal(tt.wantOutput, output)
 			})
 
-			t.Run(fmt.Sprintf("stdout.Read() want exit code: %d", tt.want.ExitCode), func(t *testing.T) {
-				if capture.ExitCode != tt.want.ExitCode {
-					t.Errorf("got %d", capture.ExitCode)
-				}
+			t.Run(fmt.Sprintf("verify exit code"), func(t *T) {
+				t.A.Equal(tt.want.ExitCode, capture.ExitCode, "exit code")
 			})
-
-			stdout.Reset()
 
 			err = capture.Stop()
-			t.Run(fmt.Sprintf("Stop(): wantErrStop: %t", tt.wantErrStop), func(t *testing.T) {
-				if (err != nil) != tt.wantErrStop {
-					t.Fatalf("error: %v", err)
-				}
-			})
+			t.ValidateError("Stop()", tt.wantErrStop, err)
 
 			if capture.Output != nil {
 				t.Fatal("Output: expected nil Output because pipes were set!")
-			}
-		})
-	}
-}
-
-// FatalRun is like t.Run()
-func FatalRun(t *testing.T, name string, fn func(t *testing.T)) {
-	var failed bool
-
-	t.Run(name, func(t *testing.T) {
-		defer func() {
-			v := recover()
-			if t.Failed() {
-				failed = true
-			}
-			if v != nil {
-				panic(v)
-			}
-		}()
-		fn(t)
-	})
-
-	if failed {
-		t.Fatalf("caught fatal failure in inner test")
+			}*/
 	}
 }

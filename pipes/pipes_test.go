@@ -1,13 +1,6 @@
 package pipes_test
 
-import (
-	"os"
-	"reflect"
-	"testing"
-
-	"github.com/metrumresearchgroup/command/pipes"
-)
-
+/*
 func TestNew(t *testing.T) {
 	type args struct {
 		options []pipes.Option
@@ -58,3 +51,4 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+*/
