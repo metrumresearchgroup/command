@@ -282,9 +282,6 @@ func TestStartStop(tt *testing.T) {
 				return p, nil
 			},
 			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
-				err = p.Stdin.Close()
-				t.A.NoError(err)
-
 				pos, err := io.ReadAll(p.Stdout)
 				t.A.NoError(err)
 
@@ -312,41 +309,14 @@ func TestStartStop(tt *testing.T) {
 				ps, err = tt.act(t, capture)
 			})
 
+			if ps != nil && ps.Stdin != nil {
+				err = ps.Stdin.Close()
+				t.A.NoError(err)
+			}
+
 			t.RunFatal("tt.test", func(t *T) {
 				tt.test(t, capture, ps, err)
 			})
 		})
-		/*
-			// false stop:
-			err := capture.Stop()
-			t.ValidateError("Stop() without Start()", true, err)
-
-			p, err := capture.Start(tt.args.ctx, tt.args.name, tt.args.args...)
-			t.ValidateError("Start()", false, err)
-
-			if _, err = p.Stdin.Write(tt.args.input); err != nil && err != io.EOF {
-				t.Fatalf("stdin.Write(): err: %v", err)
-			}
-
-			err = p.Stdin.Close()
-			t.StopOnError("stdin.Close()", err)
-
-			output, err := io.ReadAll(p.Stdout)
-			t.StopOnError("stdout.Readall()", err)
-
-			t.Run("stdout.Read()", func(t *T) {
-				t.A.Equal(tt.wantOutput, output)
-			})
-
-			t.Run(fmt.Sprintf("verify exit code"), func(t *T) {
-				t.A.Equal(tt.want.ExitCode, capture.ExitCode, "exit code")
-			})
-
-			err = capture.Stop()
-			t.ValidateError("Stop()", tt.wantErrStop, err)
-
-			if capture.Output != nil {
-				t.Fatal("Output: expected nil Output because pipes were set!")
-			}*/
 	}
 }

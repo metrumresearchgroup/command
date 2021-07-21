@@ -88,9 +88,7 @@ func New(options ...Option) *Capture {
 	return &c
 }
 
-// Run executes a name and returns Capture and error.
-//
-// The Capture will always be returned, even if it's incomplete.
+// Run executes a name with args and returns an error.
 //
 // The error type is passed on unwrapped and may contain an *exec.ExitError, which can be converted with errors.As
 // to check for additional information.
@@ -115,7 +113,8 @@ func (c *Capture) Start(ctx context.Context, name string, args ...string) (*pipe
 	c.Name = name
 	c.Args = args
 
-	// This inner cancel seems redundant but it doesn't notify upward. This allows upper lifecycles to finish.
+	// This inner cancel seems redundant but it doesn't notify upward. This
+	// allows upper lifecycles to finish.
 	ctx, c.tmpCancel = context.WithCancel(ctx)
 
 	cmd := c.makeExecCmd(ctx)
@@ -141,7 +140,7 @@ func (c *Capture) Restart(ctx context.Context) (*pipes.Pipes, error) {
 	return c.Start(ctx, c.Name, c.Args...)
 }
 
-// Stop ends a Started capture. Returns a copy of the capture,
+// Stop ends a Started capture.
 func (c *Capture) Stop() error {
 	if c.tmpCancel == nil || c.tmpCmd == nil {
 		return errors.New("command was not started")
@@ -166,7 +165,11 @@ func (c *Capture) doStop() error {
 		return errors.New("wasn't running")
 	}
 
-	if c.tmpCmd.ProcessState == nil {
+	if c.tmpCmd.ProcessState == nil || c.tmpCmd.ProcessState.Exited() {
+		if c.tmpCmd.ProcessState != nil {
+			c.ExitCode = c.tmpCmd.ProcessState.ExitCode()
+		}
+
 		c.tmpCmd = nil
 
 		return nil // process is stopped
