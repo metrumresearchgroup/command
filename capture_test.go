@@ -232,7 +232,6 @@ func TestStartStop(tt *testing.T) {
 		dir  string
 		env  []string
 		name string
-		args []string
 	}
 
 	tests := []struct {
@@ -281,7 +280,7 @@ func TestStartStop(tt *testing.T) {
 
 				return p, nil
 			},
-			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
+			test: func(t *T, capture *command.Capture, p *pipes.Pipes, _ error) {
 				pos, err := io.ReadAll(p.Stdout)
 				t.A.NoError(err)
 
