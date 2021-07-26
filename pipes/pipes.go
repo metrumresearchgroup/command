@@ -2,7 +2,6 @@ package pipes
 
 import (
 	"io"
-	"os/exec"
 )
 
 type Pipes struct {
@@ -11,28 +10,32 @@ type Pipes struct {
 	Stderr io.ReadCloser
 }
 
-func New() *Pipes {
-	return &Pipes{}
+type Plumber interface {
+	StdinPipe() (io.WriteCloser, error)
+	StdoutPipe() (io.ReadCloser, error)
+	StderrPipe() (io.ReadCloser, error)
 }
 
-func (p *Pipes) Attach(cmd *exec.Cmd) error {
-	stdin, err := cmd.StdinPipe()
+func Attach(pbr Plumber) (*Pipes, error) {
+	var p Pipes
+
+	stdin, err := pbr.StdinPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p.Stdin = stdin
 
-	stdout, err := cmd.StdoutPipe()
+	stdout, err := pbr.StdoutPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p.Stdout = stdout
 
-	stderr, err := cmd.StderrPipe()
+	stderr, err := pbr.StderrPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p.Stderr = stderr
 
-	return nil
+	return &p, nil
 }

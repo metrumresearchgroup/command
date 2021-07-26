@@ -8,9 +8,10 @@ import (
 	"io"
 	"testing"
 
+	. "github.com/metrumresearchgroup/wrapt"
+
 	"github.com/metrumresearchgroup/command"
 	"github.com/metrumresearchgroup/command/pipes"
-	. "github.com/metrumresearchgroup/command/wrapt"
 )
 
 //goland:noinspection GoNilness

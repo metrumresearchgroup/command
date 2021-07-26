@@ -119,12 +119,12 @@ func (c *Capture) Start(ctx context.Context, name string, args ...string) (*pipe
 
 	cmd := c.makeExecCmd(ctx)
 
-	p := pipes.New()
-	if err := p.Attach(cmd); err != nil {
+	p, err := pipes.Attach(cmd)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := cmd.Start(); err != nil {
+	if err = cmd.Start(); err != nil {
 		c.ExitCode = errToExitCode(err)
 
 		return p, err
