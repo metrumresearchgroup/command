@@ -21,15 +21,11 @@ Most fields are `omitempty` because they disappear in certain situations. This c
 ## Usage
 
 ```{go}
-r, err := command.New(command.WithEnv([]string{"PATH=/bin"})).Run("echo", "hello world")
+cmd := command.New(command.WithEnv([]string{"PATH=/bin"}))
+err := cmd.Run("echo", "hello world")
 if err != nil {
     // re-capture output
-    r2, _ := r.Rerun()
-    
-    // compare output between runs
-    if !reflect.DeepEqual(r, r2) {
-        // etc.
-    }
+    err = r.Rerun()
 }
 ```
 
