@@ -58,6 +58,7 @@ func (e erroringPlumber) StderrPipe() (io.ReadCloser, error) {
 	return e.errOnMatch(2)
 }
 
+//nolint:unparam
 func (e erroringPlumber) errOnMatch(n int) (io.ReadWriteCloser, error) {
 	if int(e) == n {
 		return nil, errors.New("error")
