@@ -5,6 +5,7 @@ package command_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"testing"
 
@@ -24,10 +25,12 @@ func TestCapture_Run(t *testing.T) {
 		args []string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    *command.Capture
-		wantErr bool
+		name        string
+		args        args
+		wantCapture *command.Capture
+		wantStdout  []byte
+		wantStderr  []byte
+		wantErr     bool
 	}{
 		{
 			name: "invalid name",
@@ -36,9 +39,8 @@ func TestCapture_Run(t *testing.T) {
 				name: "asdfasdf",
 			},
 			wantErr: true,
-			want: &command.Capture{
+			wantCapture: &command.Capture{
 				Name:     "asdfasdf",
-				Output:   nil,
 				ExitCode: 0,
 			},
 		},
@@ -50,8 +52,7 @@ func TestCapture_Run(t *testing.T) {
 				name: "/bin/bash",
 				args: []string{"-c", "exit 0"},
 			},
-			want: &command.Capture{
-				Output:   []byte(""),
+			wantCapture: &command.Capture{
 				ExitCode: 0,
 				Dir:      ".",
 				Name:     "/bin/bash",
@@ -66,11 +67,10 @@ func TestCapture_Run(t *testing.T) {
 				args: []string{"-c", "exit 1"},
 			},
 			wantErr: true,
-			want: &command.Capture{
+			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 1"},
 				Env:      nil,
-				Output:   []byte(""),
 				ExitCode: 1,
 			},
 		},
@@ -87,12 +87,11 @@ func TestCapture_Run(t *testing.T) {
 				args: []string{"-c", "exit 0"},
 			},
 			wantErr: true,
-			want: &command.Capture{
+			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 0"},
 				Dir:      "",
 				Env:      nil,
-				Output:   nil,
 				ExitCode: 0,
 			},
 		},
@@ -104,12 +103,12 @@ func TestCapture_Run(t *testing.T) {
 				args: []string{"-c", `echo "message" 1>&2`},
 			},
 			wantErr: false,
-			want: &command.Capture{
+			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", `echo "message" 1>&2`},
-				Output:   []byte("message\n"),
 				ExitCode: 0,
 			},
+			wantStderr: []byte("message\n"),
 		},
 		{
 			name: "captures env",
@@ -123,22 +122,33 @@ func TestCapture_Run(t *testing.T) {
 				args: []string{"-c", "echo $A $B"},
 			},
 			wantErr: false,
-			want: &command.Capture{
+			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "echo $A $B"},
-				Output:   []byte("A B\n"),
 				ExitCode: 0,
 			},
+			wantStdout: []byte("A B\n"),
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(testingT *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(testingT *testing.T) {
 			t := WrapT(testingT)
-			capture := command.New(command.WithDir(tt.args.dir), command.WithEnv(tt.args.env))
-			err := capture.Run(tt.args.ctx, tt.args.name, tt.args.args...)
-			t.AssertError(tt.wantErr, err)
-
-			AllMatcher(t, tt.want, capture)
+			capture := command.New(command.WithDir(test.args.dir), command.WithEnv(test.args.env))
+			p, err := capture.Run(test.args.ctx, test.args.name, test.args.args...)
+			t.AssertError(test.wantErr, err)
+			AllMatcher(t, test.wantCapture, capture)
+			if test.wantStdout == nil {
+				test.wantStdout = []byte{}
+			}
+			if test.wantStderr == nil {
+				test.wantStderr = []byte{}
+			}
+			stdout, err := io.ReadAll(p.Stdout)
+			t.A.NoError(err)
+			t.A.Equal(test.wantStdout, stdout)
+			stderr, err := io.ReadAll(p.Stderr)
+			t.A.NoError(err)
+			t.A.Equal(test.wantStderr, stderr)
 		})
 	}
 }
@@ -148,19 +158,24 @@ func TestCapture_Rerun(tt *testing.T) {
 
 	capture := command.New()
 
-	err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
-	if t.A.NoError(err, "capture.Run()") {
-		return
-	}
-
-	want := *capture
-
-	err = capture.Rerun(context.Background())
+	p, err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
 	if t.A.NoError(err) {
 		return
 	}
+	wantOutput, err := io.ReadAll(p.Stdout)
+	t.A.NoError(err)
+
+	want := *capture
+
+	p, err = capture.Rerun(context.Background())
+	if t.A.NoError(err) {
+		return
+	}
+	gotOutput, err := io.ReadAll(p.Stdout)
+	t.A.NoError(err)
 
 	AllMatcher(t, &want, capture)
+	t.A.Equal(wantOutput, gotOutput)
 }
 
 func TestCapture_Marshaling(tt *testing.T) {
@@ -168,7 +183,7 @@ func TestCapture_Marshaling(tt *testing.T) {
 
 	cmd := command.New(command.WithEnv([]string{"A=A"}), command.WithDir("/tmp"))
 
-	err := cmd.Run(context.Background(), "ls", "-la")
+	_, err := cmd.Run(context.Background(), "ls", "-la")
 	if t.A.NoError(err) {
 		return
 	}
@@ -188,16 +203,9 @@ func TestCapture_Marshaling(tt *testing.T) {
 func AllMatcher(t *T, want, got *command.Capture) {
 	t.RunFatal("matchers", func(t *T) {
 		ExitCodeMatcher(t, want, got)
-		OutputMatcher(t, want, got)
 		ArgsMatcher(t, want, got)
 		NameMatcher(t, want, got)
 		DirMatcher(t, want, got)
-	})
-}
-
-func OutputMatcher(t *T, want, got *command.Capture) {
-	t.Run("Output", func(t *T) {
-		t.A.Equal(want.Output, got.Output)
 	})
 }
 
@@ -297,7 +305,7 @@ func TestStartStop(tt *testing.T) {
 
 				var out []byte
 				_, err = p.Stdout.Read(out)
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					t.A.NoError(err)
 				}
 

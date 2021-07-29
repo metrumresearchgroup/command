@@ -39,3 +39,11 @@ func Attach(pbr Plumber) (*Pipes, error) {
 
 	return &p, nil
 }
+
+func Output(stdout, stderr io.Reader) *Pipes {
+	return &Pipes{
+		Stdin:  nil,
+		Stdout: io.NopCloser(stdout),
+		Stderr: io.NopCloser(stderr),
+	}
+}
