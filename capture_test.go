@@ -226,8 +226,6 @@ func ExitCodeMatcher(t *T, want, got *command.Capture) {
 }
 
 func TestStartStop(tt *testing.T) {
-	t := WrapT(tt)
-
 	type args struct {
 		ctx  context.Context
 		dir  string
@@ -291,22 +289,48 @@ func TestStartStop(tt *testing.T) {
 				t.A.Equal([]byte("hello\n"), pos)
 			},
 		},
+		{
+			name: "echo test",
+			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+				p, err = capture.Start(context.Background(), "echo", "foo")
+				t.A.NoError(err)
+
+				var out []byte
+				_, err = p.Stdout.Read(out)
+				if err != io.EOF {
+					t.A.NoError(err)
+				}
+
+				return p, nil
+			},
+			test: func(t *T, capture *command.Capture, p *pipes.Pipes, _ error) {
+				pos, err := io.ReadAll(p.Stdout)
+				t.A.NoError(err)
+
+				err = capture.Stop()
+				t.A.NoError(err)
+
+				t.A.Equal("foo\n", string(pos))
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *T) {
-			capture := command.New(command.WithDir(tt.args.dir), command.WithEnv(tt.args.env))
+	for _, test := range tests {
+		tt.Run(test.name, func(tt *testing.T) {
+			t := WrapT(tt)
+
+			capture := command.New(command.WithDir(test.args.dir), command.WithEnv(test.args.env))
 			t.RunFatal("check tt.act", func(t *T) {
-				t.A.NotNil(tt.act)
+				t.A.NotNil(test.act)
 			})
 			t.RunFatal("check tt.test", func(t *T) {
-				t.A.NotNil(tt.test)
+				t.A.NotNil(test.test)
 			})
 
 			var ps *pipes.Pipes
 			var err error
 			t.RunFatal("tt.act", func(t *T) {
-				ps, err = tt.act(t, capture)
+				ps, err = test.act(t, capture)
 			})
 
 			if ps != nil && ps.Stdin != nil {
@@ -315,7 +339,7 @@ func TestStartStop(tt *testing.T) {
 			}
 
 			t.RunFatal("tt.test", func(t *T) {
-				tt.test(t, capture, ps, err)
+				test.test(t, capture, ps, err)
 			})
 		})
 	}
