@@ -7,11 +7,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os/exec"
 	"time"
-
-	"github.com/metrumresearchgroup/command/pipes"
 )
+
+type Pipes struct {
+	Stdin  io.WriteCloser
+	Stdout io.Reader
+	Stderr io.Reader
+}
 
 // Capture represents the state for a run of a command. Most of the
 // comments on these types come from exec.Cmd, as this is our underlying
@@ -93,7 +98,7 @@ func New(options ...Option) *Capture {
 //
 // The parameters behave as they do in *exec.Cmd, so passing in a nil env will inherit the parent environment,
 // and passing an empty slice will create and empty environment.
-func (c *Capture) Run(ctx context.Context, name string, args ...string) (*pipes.Pipes, error) {
+func (c *Capture) Run(ctx context.Context, name string, args ...string) (*Pipes, error) {
 	c.Name = name
 	c.Args = args
 
@@ -115,7 +120,7 @@ func (c *Capture) CombinedOutput(ctx context.Context, name string, args ...strin
 // indicating whether the start was successful, and to provide with re-runnable operation.
 //
 // The results are similar to Run, where an *exec.ExitError will fire in the case of failure to run.
-func (c *Capture) Start(ctx context.Context, name string, args ...string) (*pipes.Pipes, error) {
+func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Pipes, error) {
 	c.Name = name
 	c.Args = args
 
@@ -134,8 +139,19 @@ func (c *Capture) Start(ctx context.Context, name string, args ...string) (*pipe
 	return p, nil
 }
 
-func (c *Capture) doStart(cmd *exec.Cmd) (*pipes.Pipes, error) {
-	p, err := pipes.Attach(cmd)
+func (c *Capture) doStart(cmd *exec.Cmd) (*Pipes, error) {
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create stdout, stderr streams of type io.Reader
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, err
 	}
@@ -144,11 +160,15 @@ func (c *Capture) doStart(cmd *exec.Cmd) (*pipes.Pipes, error) {
 		c.ExitCode = errToExitCode(err)
 	}
 
-	return p, err
+	return &Pipes{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+	}, nil
 }
 
 // Restart runs a previously run command, binding pipes before operation.
-func (c *Capture) Restart(ctx context.Context) (*pipes.Pipes, error) {
+func (c *Capture) Restart(ctx context.Context) (*Pipes, error) {
 	return c.Start(ctx, c.Name, c.Args...)
 }
 
@@ -217,7 +237,7 @@ func (c *Capture) doStop() error {
 
 // Rerun re-runs the Capture's parameters in a new shell, recording
 // A result to it in the same way as Run.
-func (c *Capture) Rerun(ctx context.Context) (*pipes.Pipes, error) {
+func (c *Capture) Rerun(ctx context.Context) (*Pipes, error) {
 	return c.Run(ctx, c.Name, c.Args...)
 }
 
@@ -229,14 +249,16 @@ func (c *Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
 	return cmd
 }
 
-func (c *Capture) doRun(cmd *exec.Cmd) (*pipes.Pipes, error) {
-	outBuf := &bytes.Buffer{}
-	errBuf := &bytes.Buffer{}
+func (c *Capture) doRun(cmd *exec.Cmd) (*Pipes, error) {
+	bufOut, bufErr := &bytes.Buffer{}, &bytes.Buffer{}
+	p := &Pipes{
+		Stdin:  nil,
+		Stdout: bufOut,
+		Stderr: bufErr,
+	}
 
-	p := pipes.Output(outBuf, errBuf)
-
-	cmd.Stdout = outBuf
-	cmd.Stderr = errBuf
+	cmd.Stdout = bufOut
+	cmd.Stderr = bufErr
 
 	err := cmd.Run()
 	c.ExitCode = errToExitCode(err)

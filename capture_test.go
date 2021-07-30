@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"testing"
 
 	. "github.com/metrumresearchgroup/wrapt"
 
 	"github.com/metrumresearchgroup/command"
-	"github.com/metrumresearchgroup/command/pipes"
 )
 
 //goland:noinspection GoNilness
@@ -244,8 +244,8 @@ func TestStartStop(tt *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		act  func(t *T, capture *command.Capture) (p *pipes.Pipes, err error)
-		test func(t *T, capture *command.Capture, p *pipes.Pipes, err error)
+		act  func(t *T, capture *command.Capture) (p *command.Pipes, err error)
+		test func(t *T, capture *command.Capture, p *command.Pipes, err error)
 	}{
 		{
 			name: "stop without start",
@@ -253,21 +253,21 @@ func TestStartStop(tt *testing.T) {
 				ctx:  context.Background(),
 				name: "cat",
 			},
-			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+			act: func(t *T, capture *command.Capture) (p *command.Pipes, err error) {
 				err = capture.Stop()
 
 				return
 			},
-			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
+			test: func(t *T, capture *command.Capture, p *command.Pipes, err error) {
 				t.ValidateError("want error", true, err)
 			},
 		},
 		{
 			name: "start",
-			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+			act: func(t *T, capture *command.Capture) (p *command.Pipes, err error) {
 				return capture.Start(context.Background(), "cat")
 			},
-			test: func(t *T, capture *command.Capture, p *pipes.Pipes, err error) {
+			test: func(t *T, capture *command.Capture, p *command.Pipes, err error) {
 				t.A.NotNil(p)
 				t.A.NoError(err)
 
@@ -277,7 +277,7 @@ func TestStartStop(tt *testing.T) {
 		},
 		{
 			name: "start and use input",
-			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+			act: func(t *T, capture *command.Capture) (p *command.Pipes, err error) {
 				p, err = capture.Start(context.Background(), "cat")
 				t.A.NoError(err)
 
@@ -287,8 +287,11 @@ func TestStartStop(tt *testing.T) {
 
 				return p, nil
 			},
-			test: func(t *T, capture *command.Capture, p *pipes.Pipes, _ error) {
-				pos, err := io.ReadAll(p.Stdout)
+			test: func(t *T, capture *command.Capture, p *command.Pipes, _ error) {
+				err := p.Stdin.Close()
+				t.A.NoError(err)
+
+				pos, err := ioutil.ReadAll(p.Stdout)
 				t.A.NoError(err)
 
 				err = capture.Stop()
@@ -299,19 +302,15 @@ func TestStartStop(tt *testing.T) {
 		},
 		{
 			name: "echo test",
-			act: func(t *T, capture *command.Capture) (p *pipes.Pipes, err error) {
+			act: func(t *T, capture *command.Capture) (p *command.Pipes, err error) {
 				p, err = capture.Start(context.Background(), "echo", "foo")
 				t.A.NoError(err)
 
-				var out []byte
-				_, err = p.Stdout.Read(out)
-				if !errors.Is(err, io.EOF) {
-					t.A.NoError(err)
-				}
-
 				return p, nil
 			},
-			test: func(t *T, capture *command.Capture, p *pipes.Pipes, _ error) {
+			test: func(t *T, capture *command.Capture, p *command.Pipes, _ error) {
+				// t.A.NoError(p.Stdin.Close(), "close stdin")
+
 				pos, err := io.ReadAll(p.Stdout)
 				t.A.NoError(err)
 
@@ -321,6 +320,29 @@ func TestStartStop(tt *testing.T) {
 				t.A.Equal("foo\n", string(pos))
 			},
 		},
+		{
+			name: "echo test, close before ReadAll",
+			act: func(t *T, capture *command.Capture) (p *command.Pipes, err error) {
+				p, err = capture.Start(context.Background(), "echo", "foo")
+				t.A.NoError(err)
+
+				return p, nil
+			},
+			test: func(t *T, capture *command.Capture, p *command.Pipes, _ error) {
+				err := p.Stdin.Close()
+				t.A.NoError(err)
+
+				out, err := io.ReadAll(p.Stdout)
+				if !errors.Is(err, io.EOF) {
+					t.A.NoError(err)
+				}
+
+				err = capture.Stop()
+				t.A.NoError(err)
+
+				t.A.Equal("foo\n", string(out))
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -328,25 +350,20 @@ func TestStartStop(tt *testing.T) {
 			t := WrapT(tt)
 
 			capture := command.New(command.WithDir(test.args.dir), command.WithEnv(test.args.env))
-			t.RunFatal("check tt.act", func(t *T) {
+			t.RunFatal("check act", func(t *T) {
 				t.A.NotNil(test.act)
 			})
-			t.RunFatal("check tt.test", func(t *T) {
+			t.RunFatal("check test", func(t *T) {
 				t.A.NotNil(test.test)
 			})
 
-			var ps *pipes.Pipes
+			var ps *command.Pipes
 			var err error
-			t.RunFatal("tt.act", func(t *T) {
+			t.RunFatal("act", func(t *T) {
 				ps, err = test.act(t, capture)
 			})
 
-			if ps != nil && ps.Stdin != nil {
-				err = ps.Stdin.Close()
-				t.A.NoError(err)
-			}
-
-			t.RunFatal("tt.test", func(t *T) {
+			t.RunFatal("test", func(t *T) {
 				test.test(t, capture, ps, err)
 			})
 		})
