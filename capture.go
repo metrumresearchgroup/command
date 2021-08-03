@@ -63,9 +63,8 @@ type Capture struct {
 	tmpCmd *exec.Cmd
 
 	// tmpCancel is the cancel func for the context. This will cancel
-	// a clone
-	// of the original context, which gives us upper cancels a chance
-	// to run out their lifecycle.
+	// a clone of the original context, which gives us upper cancels
+	// a chance to run out their lifecycle.
 	tmpCancel func()
 }
 
