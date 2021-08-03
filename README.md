@@ -7,7 +7,7 @@ for either re-running, or writing out to disk.
 
 The project's goal is ease of use when configuring, starting/stopping, and directly capturing output of a `exec.Cmd` call.
 
-Its secondary goal is to allow use to re-run a command with its complete environment repeatedly.
+Its secondary goal is to allow us to re-run a command with its complete environment repeatedly.
 
 ## Use Cases
 

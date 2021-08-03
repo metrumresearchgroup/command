@@ -34,16 +34,19 @@ type Capture struct {
 	Args []string `json:"args,omitempty"`
 
 	// Dir specifies the working directory of the name.
-	// If Dir is the empty string, Comand runs the name in the
+	// If Dir is the empty string, Command runs the name in the
 	// calling process's current directory.
 	Dir string `json:"dir,omitempty"`
 
 	// Env specifies the environment of the process.
 	// Each entry is of the form "key=value".
+	//
 	// If Env is nil, the new process uses the current process's
 	// environment.
+	//
 	// If Env contains duplicate environment keys, only the last
 	// value in the slice for each duplicate key is used.
+	//
 	// As a special case on Windows, SYSTEMROOT is always added if
 	// missing and not explicitly set to the empty string.
 	Env []string `json:"env,omitempty"`
