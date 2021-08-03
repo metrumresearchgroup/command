@@ -1,6 +1,6 @@
-// Package command provides an organized way of running a *exec.Cmd and generates
-// a Capture that contains all commonly-accessed information in the Cmd that allows
-// for repeated execution.
+// Package command provides an organized way of running a *exec.Cmd
+// and generates a Capture that contains all commonly-accessed information
+// in the Cmd that allows for repeated execution.
 package command
 
 import (
@@ -49,22 +49,26 @@ type Capture struct {
 	Env []string `json:"env,omitempty"`
 
 	// ExitCode holds the exit code returned by the call.
-	// It will be 0 (default value) even if a name didn't run due to error.
-	// You MUST check error when calling any of the functions below, as the
-	// exec.ExitError type contains additional context for failure.
+	// It will be 0 (default value) even if a name didn't run due to
+	// error. You MUST check error when calling any of the functions
+	// below, as the exec.ExitError type contains additional context
+	// for failure.
 	ExitCode int `json:"exit_code"`
 
-	// tmpCommand stores the running command in the interactive Start style.
+	// tmpCommand stores the running command in the interactive Start
+	// style.
 	tmpCmd *exec.Cmd
 
-	// tmpCancel is the cancel func for the context. This will cancel a clone
-	// of the original context, which gives us upper cancels a chance to run out
-	// their lifecycle.
+	// tmpCancel is the cancel func for the context. This will cancel
+	// a clone
+	// of the original context, which gives us upper cancels a chance
+	// to run out their lifecycle.
 	tmpCancel func()
 }
 
-// Option is a value setters type given to the New function to set the optional parts of configuration.
-// This allows us to add some of the other exec.Cmd fields later if we have to.
+// Option is a value setters type given to the New function to set
+// the optional parts of configuration. This allows us to add some of
+// the other exec.Cmd fields later if we have to.
 type Option func(*Capture)
 
 // WithEnv is passed into New() to set the environment.
@@ -93,11 +97,12 @@ func New(options ...Option) *Capture {
 
 // Run executes a name with args and returns an error.
 //
-// The error type is passed on unwrapped and may contain an *exec.ExitError, which can be converted with errors.As
-// to check for additional information.
+// The error may contain an *exec.ExitError, which can be converted with
+// errors.As to check for additional information.
 //
-// The parameters behave as they do in *exec.Cmd, so passing in a nil env will inherit the parent environment,
-// and passing an empty slice will create and empty environment.
+// The parameters behave as they do in *exec.Cmd, so passing in a nil
+// env will inherit the parent environment, and passing an empty slice
+// will create and empty environment.
 func (c *Capture) Run(ctx context.Context, name string, args ...string) (*Pipes, error) {
 	c.Name = name
 	c.Args = args
@@ -116,16 +121,18 @@ func (c *Capture) CombinedOutput(ctx context.Context, name string, args ...strin
 	return cmd.CombinedOutput()
 }
 
-// Start starts a exec.Cmd with stdin/out/err set to the values in io, a name, and args, and returns Capture and Error
-// indicating whether the start was successful, and to provide with re-runnable operation.
+// Start starts a exec.Cmd with stdin/out/err set to the values in io,
+// a name, and args, and returns Capture and Error indicating whether
+// the start was successful, and to provide with re-runnable operation.
 //
-// The results are similar to Run, where an *exec.ExitError will fire in the case of failure to run.
+// The results are similar to Run, where an *exec.ExitError will fire,
+// in the case of failure to run.
 func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Pipes, error) {
 	c.Name = name
 	c.Args = args
 
-	// This inner cancel seems redundant but it doesn't notify upward. This
-	// allows upper lifecycles to finish.
+	// This inner cancel seems redundant but it doesn't notify upward.
+	// This allows upper lifecycles to finish.
 	ctx, c.tmpCancel = context.WithCancel(ctx)
 
 	cmd := c.makeExecCmd(ctx)

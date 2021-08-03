@@ -3,6 +3,18 @@
 This package wraps the functionality of calling an `*exec.Cmd.CombinedOutput()`, capturing an easy-to-serialize result
 for either re-running, or writing out to disk.
 
+## Goal
+
+The project's goal is ease of use when configuring, starting/stopping, and directly capturing output of a `exec.Cmd` call.
+
+Its secondary goal is to allow use to re-run a command with its complete environment repeatedly.
+
+## Use Cases
+
+1. Saving a pre-defined command, and executing it repeatedly.
+2. Checking applications for idempotence, with all environmental variability controlled by the package.
+3. Serializing the configuration for future use as JSON and reloading it at startup.
+
 ## Structure
 
 ```{go}
