@@ -3,6 +3,18 @@
 This package wraps the functionality of calling an `*exec.Cmd.CombinedOutput()`, capturing an easy-to-serialize result
 for either re-running, or writing out to disk.
 
+## Goal
+
+The project's goal is ease of use when configuring, starting/stopping, and directly capturing output of a `exec.Cmd` call.
+
+Its secondary goal is to allow us to re-run a command with its complete environment repeatedly.
+
+## Use Cases
+
+1. Saving a pre-defined command, and executing it repeatedly.
+2. Checking applications for idempotence, with all environmental variability controlled by the package.
+3. Serializing the configuration for future use as JSON and reloading it at startup.
+
 ## Structure
 
 ```{go}
@@ -21,15 +33,11 @@ Most fields are `omitempty` because they disappear in certain situations. This c
 ## Usage
 
 ```{go}
-r, err := command.New(command.WithEnv([]string{"PATH=/bin"})).Run("echo", "hello world")
+cmd := command.New(command.WithEnv([]string{"PATH=/bin"}))
+err := cmd.Run("echo", "hello world")
 if err != nil {
     // re-capture output
-    r2, _ := r.Rerun()
-    
-    // compare output between runs
-    if !reflect.DeepEqual(r, r2) {
-        // etc.
-    }
+    err = r.Rerun()
 }
 ```
 
