@@ -58,6 +58,7 @@ type Capture struct {
 	// for failure.
 	ExitCode int `json:"exit_code"`
 
+	cmdModifierFunc func(*exec.Cmd) error
 	// tmpCommand stores the running command in the interactive Start
 	// style.
 	tmpCmd *exec.Cmd
@@ -72,6 +73,15 @@ type Capture struct {
 // the optional parts of configuration. This allows us to add some of
 // the other exec.Cmd fields later if we have to.
 type Option func(*Capture)
+
+// WithCmdModifier is passed into New() to allow modification of the exec.command
+// after all other settings are configured but before running
+// this allows adjustments such as
+func WithCmdModifier(f func(*exec.Cmd) error) Option {
+	return func(r *Capture) {
+		r.cmdModifierFunc = f
+	}
+}
 
 // WithEnv is passed into New() to set the environment.
 func WithEnv(env []string) Option {
@@ -254,7 +264,9 @@ func (c *Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
 	cmd.Env = c.Env
 	cmd.Dir = c.Dir
-
+	if c.cmdModifierFunc != nil {
+		c.cmdModifierFunc(cmd)
+	}
 	return cmd
 }
 
