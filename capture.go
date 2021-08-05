@@ -273,6 +273,16 @@ func (c *Capture) doStop() error {
 	}
 }
 
+// With allows a post-creation addition/modification to the internal
+// options of the Capture. This is especially useful for situations
+// where you want to re-set the command modifier function after
+// unmarshalling, since functions in go are not serializable.
+func (c *Capture) With(options ...Option) {
+	for _, option := range options {
+		option(c)
+	}
+}
+
 // Rerun re-runs the Capture's parameters in a new shell, recording
 // A result to it in the same way as Run.
 func (c *Capture) Rerun(ctx context.Context) (*Pipes, error) {
