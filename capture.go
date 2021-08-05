@@ -58,7 +58,12 @@ type Capture struct {
 	// for failure.
 	ExitCode int `json:"exit_code"`
 
+	// cmdModifierFunc is for a user-supplied function to change the
+	// properties of the *exec.Cmd before it is called. This allows
+	// the end user to manipulate inputs or set properties otherwise
+	// hidden by this library.
 	cmdModifierFunc func(*exec.Cmd) error
+
 	// tmpCommand stores the running command in the interactive Start
 	// style.
 	tmpCmd *exec.Cmd
@@ -75,25 +80,29 @@ type Capture struct {
 type Option func(*Capture)
 
 // WithCmdModifier is passed into New() to allow modification of the exec.command
-// after all other settings are configured but before running
-// this allows adjustments such as
-func WithCmdModifier(f func(*exec.Cmd) error) Option {
-	return func(r *Capture) {
-		r.cmdModifierFunc = f
+// after all other settings are configured but before running.
+//
+// This allows for adjustments to the exec.Cmd before executing it.
+//
+// You can modify any public property of the Cmd. Remember that this is a
+// "foot-gun" and can lead to unexpected behavior.
+func WithCmdModifier(fn func(*exec.Cmd) error) Option {
+	return func(c *Capture) {
+		c.cmdModifierFunc = fn
 	}
 }
 
 // WithEnv is passed into New() to set the environment.
 func WithEnv(env []string) Option {
-	return func(r *Capture) {
-		r.Env = env
+	return func(c *Capture) {
+		c.Env = env
 	}
 }
 
 // WithDir is passed into New() to set the working directory.
 func WithDir(dir string) Option {
-	return func(r *Capture) {
-		r.Dir = dir
+	return func(c *Capture) {
+		c.Dir = dir
 	}
 }
 
@@ -119,7 +128,10 @@ func (c *Capture) Run(ctx context.Context, name string, args ...string) (*Pipes,
 	c.Name = name
 	c.Args = args
 
-	cmd := c.makeExecCmd(ctx)
+	cmd, err := c.makeExecCmd(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return c.doRun(cmd)
 }
@@ -128,7 +140,10 @@ func (c *Capture) CombinedOutput(ctx context.Context, name string, args ...strin
 	c.Name = name
 	c.Args = args
 
-	cmd := c.makeExecCmd(ctx)
+	cmd, err := c.makeExecCmd(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return cmd.CombinedOutput()
 }
@@ -147,7 +162,11 @@ func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Pipe
 	// This allows upper lifecycles to finish.
 	ctx, c.tmpCancel = context.WithCancel(ctx)
 
-	cmd := c.makeExecCmd(ctx)
+	cmd, err := c.makeExecCmd(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	p, err := c.doStart(cmd)
 	if err != nil {
 		return p, err
@@ -260,14 +279,19 @@ func (c *Capture) Rerun(ctx context.Context) (*Pipes, error) {
 	return c.Run(ctx, c.Name, c.Args...)
 }
 
-func (c *Capture) makeExecCmd(ctx context.Context) *exec.Cmd {
+func (c *Capture) makeExecCmd(ctx context.Context) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
 	cmd.Env = c.Env
 	cmd.Dir = c.Dir
+
 	if c.cmdModifierFunc != nil {
-		c.cmdModifierFunc(cmd)
+		err := c.cmdModifierFunc(cmd)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return cmd
+
+	return cmd, nil
 }
 
 func (c *Capture) doRun(cmd *exec.Cmd) (*Pipes, error) {
