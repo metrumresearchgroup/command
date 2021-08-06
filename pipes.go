@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"io"
 )
 
@@ -19,16 +18,6 @@ type Pipes struct {
 // filter/wrap output.
 func (p *Pipes) Pipes() *Pipes {
 	return p
-}
-
-// StdoutScanner returns a bufio.Scanner over stdio.
-func (p *Pipes) StdoutScanner() *bufio.Scanner {
-	return bufio.NewScanner(p.Stdout)
-}
-
-// StderrScanner returns a bufio.Scanner over stderr.
-func (p *Pipes) StderrScanner() *bufio.Scanner {
-	return bufio.NewScanner(p.Stderr)
 }
 
 // CloseInput closes stdin. Sometimes required to let

@@ -14,18 +14,20 @@ type Plumber interface {
 	// RawPipes returns the pipes for direct manipulation by the end-user
 	Pipes() *Pipes
 
-	// StdoutScanner returns a bufio.Scanner that allows the user
-	// to follow stdout output on a line-by-line basis. Since it returns
-	// a Scanner, you can change the scan method at will
-	StdoutScanner() *bufio.Scanner
-
-	// StderrScanner is similar to StdoutScanner, but with Stderr.
-	StderrScanner() *bufio.Scanner
-
 	// CloseInput is required by some applications to close the input pipe
 	// and stop interaction. This signals the application with pipe control
 	// that it is OK to exit.
 	CloseInput() error
+}
+
+// StdoutScanner returns a bufio.Scanner over stdio.
+func (i *Interact) StdoutScanner() *bufio.Scanner {
+	return bufio.NewScanner(i.Plumber.Pipes().Stdout)
+}
+
+// StderrScanner returns a bufio.Scanner over stderr.
+func (i *Interact) StderrScanner() *bufio.Scanner {
+	return bufio.NewScanner(i.Plumber.Pipes().Stderr)
 }
 
 // Controller defines the process control portion of the command and what
