@@ -5,6 +5,8 @@ import "bufio"
 type Interact struct {
 	Plumber
 	Controller
+
+	outScanner, errScanner *bufio.Scanner
 }
 
 // Plumber defines functions on Pipes that handle modes of interaction.
@@ -20,14 +22,24 @@ type Plumber interface {
 	CloseInput() error
 }
 
-// StdoutScanner returns a bufio.Scanner over stdio.
+// StdoutScanner returns a bufio.Scanner over stdout.
 func (i *Interact) StdoutScanner() *bufio.Scanner {
-	return bufio.NewScanner(i.Plumber.Pipes().Stdout)
+	if i.outScanner != nil {
+		return i.outScanner
+	}
+
+	i.outScanner = bufio.NewScanner(i.Plumber.Pipes().Stdout)
+	return i.outScanner
 }
 
 // StderrScanner returns a bufio.Scanner over stderr.
 func (i *Interact) StderrScanner() *bufio.Scanner {
-	return bufio.NewScanner(i.Plumber.Pipes().Stderr)
+	if i.errScanner != nil {
+		return i.errScanner
+	}
+
+	i.errScanner = bufio.NewScanner(i.Plumber.Pipes().Stderr)
+	return i.errScanner
 }
 
 // Controller defines the process control portion of the command and what
