@@ -13,7 +13,7 @@ type Interact struct {
 // It is meant as a template, not as a literal interface, an serves an illustration
 // of the required interactivity.
 type Plumber interface {
-	// RawPipes returns the pipes for direct manipulation by the end-user
+	// Pipes returns the pipes for direct manipulation by the end-user
 	Pipes() *Pipes
 
 	// CloseInput is required by some applications to close the input pipe
@@ -29,6 +29,7 @@ func (i *Interact) StdoutScanner() *bufio.Scanner {
 	}
 
 	i.outScanner = bufio.NewScanner(i.Plumber.Pipes().Stdout)
+
 	return i.outScanner
 }
 
@@ -39,6 +40,7 @@ func (i *Interact) StderrScanner() *bufio.Scanner {
 	}
 
 	i.errScanner = bufio.NewScanner(i.Plumber.Pipes().Stderr)
+
 	return i.errScanner
 }
 
