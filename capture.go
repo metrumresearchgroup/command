@@ -7,16 +7,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"os/exec"
 	"time"
 )
-
-type Pipes struct {
-	Stdin  io.WriteCloser
-	Stdout io.Reader
-	Stderr io.Reader
-}
 
 // Capture represents the state for a run of a command. Most of the
 // comments on these types come from exec.Cmd, as this is our underlying
@@ -154,7 +147,7 @@ func (c *Capture) CombinedOutput(ctx context.Context, name string, args ...strin
 //
 // The results are similar to Run, where an *exec.ExitError will fire,
 // in the case of failure to run.
-func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Pipes, error) {
+func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Interact, error) {
 	c.Name = name
 	c.Args = args
 
@@ -167,17 +160,17 @@ func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Pipe
 		return nil, err
 	}
 
-	p, err := c.doStart(cmd)
+	i, err := c.doStart(cmd)
 	if err != nil {
-		return p, err
+		return i, err
 	}
 
 	c.tmpCmd = cmd
 
-	return p, nil
+	return i, nil
 }
 
-func (c *Capture) doStart(cmd *exec.Cmd) (*Pipes, error) {
+func (c *Capture) doStart(cmd *exec.Cmd) (*Interact, error) {
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -198,15 +191,18 @@ func (c *Capture) doStart(cmd *exec.Cmd) (*Pipes, error) {
 		c.ExitCode = errToExitCode(err)
 	}
 
-	return &Pipes{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
+	return &Interact{
+		Plumber: &Pipes{
+			Stdin:  stdin,
+			Stdout: stdout,
+			Stderr: stderr,
+		},
+		Controller: c,
 	}, nil
 }
 
-// Restart runs a previously run command, binding pipes before operation.
-func (c *Capture) Restart(ctx context.Context) (*Pipes, error) {
+func (c *Capture) Restart(ctx context.Context) (*Interact, error) {
+	// Restart runs a previously run command, binding pipes before operation.
 	return c.Start(ctx, c.Name, c.Args...)
 }
 
@@ -221,6 +217,16 @@ func (c *Capture) Stop() error {
 	c.ExitCode = errToExitCode(err)
 
 	return err
+}
+
+// Wait waits on the underlying process to wait; typically you'd do this
+// if you already have a goroutine listening to outputs.
+func (c *Capture) Wait() error {
+	if c.tmpCancel == nil || c.tmpCmd == nil {
+		return errors.New("command was not started")
+	}
+
+	return c.tmpCmd.Wait()
 }
 
 func (c *Capture) doStop() error {
