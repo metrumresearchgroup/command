@@ -135,7 +135,7 @@ func TestCapture_Run(t *testing.T) {
 			t := WrapT(testingT)
 			capture := command.New(command.WithDir(test.args.dir), command.WithEnv(test.args.env))
 			p, err := capture.Run(test.args.ctx, test.args.name, test.args.args...)
-			t.AssertError(test.wantErr, err)
+			t.R.WantError(test.wantErr, err)
 			AllMatcher(t, test.wantCapture, capture)
 			if test.wantStdout == nil {
 				test.wantStdout = []byte{}
@@ -259,7 +259,7 @@ func TestStartStop(tt *testing.T) {
 				return
 			},
 			test: func(t *T, capture *command.Capture, i *command.Interact, err error) {
-				t.ValidateError("want error", true, err)
+				t.R.WantError(true, err)
 			},
 		},
 		{
