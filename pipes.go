@@ -12,7 +12,7 @@ type Pipes struct {
 	Stderr io.Reader
 }
 
-// Pipes Returns the raw types object, because
+// Pipes Returns the raw pipes struct, because
 // this may be something we want to make by scratch
 // in a future type, such as in situations where you
 // filter/wrap output.
@@ -21,7 +21,7 @@ func (p *Pipes) Pipes() *Pipes {
 }
 
 // CloseInput closes stdin. Sometimes required to let
-// a process natually terminate when using pipes.
+// a process naturally terminate when using pipes.
 func (p *Pipes) CloseInput() error {
 	return p.Stdin.Close()
 }

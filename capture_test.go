@@ -48,13 +48,11 @@ func TestCapture_Run(t *testing.T) {
 			name: "success return",
 			args: args{
 				ctx:  context.Background(),
-				dir:  ".", // this is explicitly stated to test the WithDir below.
 				name: "/bin/bash",
 				args: []string{"-c", "exit 0"},
 			},
 			wantCapture: &command.Capture{
 				ExitCode: 0,
-				Dir:      ".",
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 0"},
 			},
@@ -70,7 +68,6 @@ func TestCapture_Run(t *testing.T) {
 			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 1"},
-				Env:      nil,
 				ExitCode: 1,
 			},
 		},
@@ -90,8 +87,6 @@ func TestCapture_Run(t *testing.T) {
 			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 0"},
-				Dir:      "",
-				Env:      nil,
 				ExitCode: 0,
 			},
 		},
@@ -185,13 +180,11 @@ func TestCapture_CombinedOutput(t *testing.T) {
 			name: "success return",
 			args: args{
 				ctx:  context.Background(),
-				dir:  ".", // this is explicitly stated to test the WithDir below.
 				name: "/bin/bash",
 				args: []string{"-c", "exit 0"},
 			},
 			wantCapture: &command.Capture{
 				ExitCode: 0,
-				Dir:      ".",
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 0"},
 			},
@@ -207,7 +200,6 @@ func TestCapture_CombinedOutput(t *testing.T) {
 			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 1"},
-				Env:      nil,
 				ExitCode: 1,
 			},
 		},
@@ -227,8 +219,6 @@ func TestCapture_CombinedOutput(t *testing.T) {
 			wantCapture: &command.Capture{
 				Name:     "/bin/bash",
 				Args:     []string{"-c", "exit 0"},
-				Dir:      "",
-				Env:      nil,
 				ExitCode: 0,
 			},
 		},
@@ -360,7 +350,7 @@ func ExitCodeMatcher(t *T, want, got *command.Capture) {
 	})
 }
 
-func TestStartStop(tt *testing.T) {
+func TestStartStopWait(tt *testing.T) {
 	type args struct {
 		ctx  context.Context
 		dir  string
@@ -390,7 +380,7 @@ func TestStartStop(tt *testing.T) {
 			},
 		},
 		{
-			name: "start",
+			name: "start stop",
 			act: func(t *T, capture *command.Capture) (i *command.Interact, err error) {
 				return capture.Start(context.Background(), "cat")
 			},
@@ -399,6 +389,19 @@ func TestStartStop(tt *testing.T) {
 				t.A.NoError(err)
 
 				err = capture.Stop()
+				t.A.NoError(err)
+			},
+		},
+		{
+			name: "start wait",
+			act: func(t *T, capture *command.Capture) (i *command.Interact, err error) {
+				return capture.Start(context.Background(), "sleep", "10")
+			},
+			test: func(t *T, capture *command.Capture, i *command.Interact, err error) {
+				t.R.NotNil(i)
+				t.R.NoError(err)
+
+				err = i.Wait()
 				t.A.NoError(err)
 			},
 		},
@@ -477,22 +480,15 @@ func TestStartStop(tt *testing.T) {
 			t := WrapT(tt)
 
 			capture := command.New(command.WithDir(test.args.dir), command.WithEnv(test.args.env))
-			t.RunFatal("check act", func(t *T) {
-				t.A.NotNil(test.act)
-			})
-			t.RunFatal("check test", func(t *T) {
-				t.A.NotNil(test.test)
-			})
+
+			t.R.NotNil(test.act)
+			t.R.NotNil(test.test)
 
 			var i *command.Interact
 			var err error
-			t.RunFatal("act", func(t *T) {
-				i, err = test.act(t, capture)
-			})
+			i, err = test.act(t, capture)
 
-			t.RunFatal("test", func(t *T) {
-				test.test(t, capture, i, err)
-			})
+			test.test(t, capture, i, err)
 		})
 	}
 }
