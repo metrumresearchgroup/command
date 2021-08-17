@@ -153,24 +153,151 @@ func TestCapture_Run(t *testing.T) {
 	}
 }
 
+//goland:noinspection GoNilness
+func TestCapture_CombinedOutput(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		dir  string
+		env  []string
+		name string
+		args []string
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantCapture  *command.Capture
+		wantCombined []byte
+		wantErr      bool
+	}{
+		{
+			name: "invalid name",
+			args: args{
+				ctx:  context.Background(),
+				name: "asdfasdf",
+			},
+			wantErr: true,
+			wantCapture: &command.Capture{
+				Name:     "asdfasdf",
+				ExitCode: 0,
+			},
+		},
+		{
+			name: "success return",
+			args: args{
+				ctx:  context.Background(),
+				dir:  ".", // this is explicitly stated to test the WithDir below.
+				name: "/bin/bash",
+				args: []string{"-c", "exit 0"},
+			},
+			wantCapture: &command.Capture{
+				ExitCode: 0,
+				Dir:      ".",
+				Name:     "/bin/bash",
+				Args:     []string{"-c", "exit 0"},
+			},
+		},
+		{
+			name: "nonzero return",
+			args: args{
+				ctx:  context.Background(),
+				name: "/bin/bash",
+				args: []string{"-c", "exit 1"},
+			},
+			wantErr: true,
+			wantCapture: &command.Capture{
+				Name:     "/bin/bash",
+				Args:     []string{"-c", "exit 1"},
+				Env:      nil,
+				ExitCode: 1,
+			},
+		},
+		{
+			name: "ctx canceled",
+			args: args{
+				ctx: func() context.Context {
+					ctx, cancel := context.WithCancel(context.Background())
+					cancel()
+
+					return ctx
+				}(),
+				name: "/bin/bash",
+				args: []string{"-c", "exit 0"},
+			},
+			wantErr: true,
+			wantCapture: &command.Capture{
+				Name:     "/bin/bash",
+				Args:     []string{"-c", "exit 0"},
+				Dir:      "",
+				Env:      nil,
+				ExitCode: 0,
+			},
+		},
+		{
+			name: "captures output",
+			args: args{
+				ctx:  context.Background(),
+				name: "/bin/bash",
+				args: []string{"-c", `echo "message" 1>&2`},
+			},
+			wantErr: false,
+			wantCapture: &command.Capture{
+				Name:     "/bin/bash",
+				Args:     []string{"-c", `echo "message" 1>&2`},
+				ExitCode: 0,
+			},
+			wantCombined: []byte("message\n"),
+		},
+		{
+			name: "uses env",
+			args: args{
+				ctx: context.Background(),
+				env: []string{
+					"A=A",
+					"B=B",
+				},
+				name: "/bin/bash",
+				args: []string{"-c", "echo $A $B"},
+			},
+			wantErr: false,
+			wantCapture: &command.Capture{
+				Name:     "/bin/bash",
+				Args:     []string{"-c", "echo $A $B"},
+				ExitCode: 0,
+			},
+			wantCombined: []byte("A B\n"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(testingT *testing.T) {
+			t := WrapT(testingT)
+			capture := command.New(command.WithDir(test.args.dir), command.WithEnv(test.args.env))
+			bs, err := capture.CombinedOutput(test.args.ctx, test.args.name, test.args.args...)
+			t.R.WantError(test.wantErr, err)
+			if len(test.wantCombined) == 0 {
+				t.A.Empty(bs)
+			} else {
+				t.A.Equal(test.wantCombined, bs)
+			}
+		})
+	}
+}
+
 func TestCapture_Rerun(tt *testing.T) {
 	t := WrapT(tt)
 
 	capture := command.New()
 
 	p, err := capture.Run(context.Background(), "/bin/bash", "-c", "echo $A $B")
-	if t.A.NoError(err) {
-		return
-	}
+	t.R.NoError(err)
+
 	wantOutput, err := io.ReadAll(p.Stdout)
-	t.A.NoError(err)
+	t.R.NoError(err)
 
 	want := *capture
 
 	p, err = capture.Rerun(context.Background())
-	if t.A.NoError(err) {
-		return
-	}
+	t.R.NoError(err)
+
 	gotOutput, err := io.ReadAll(p.Stdout)
 	t.A.NoError(err)
 
