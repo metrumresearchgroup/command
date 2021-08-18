@@ -397,7 +397,7 @@ func TestStartStopWait(tt *testing.T) {
 			},
 			test: func(t *T, capture *command.Capture, i *command.Interact, err error) {
 				t.R.WantError(true, err)
-				t.R.Equal(127, capture.ExitCode)
+				t.R.NotZero(capture.ExitCode)
 			},
 		},
 		{
