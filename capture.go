@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"os/exec"
-	"time"
 )
 
 // Capture represents the state for a run of a command. Most of the
@@ -189,7 +188,7 @@ func (c *Capture) doStart(cmd *exec.Cmd) (*Interact, error) {
 			Stderr: stderr,
 		},
 		Controller: c,
-	}, nil
+	}, err
 }
 
 func (c *Capture) Restart(ctx context.Context) (*Interact, error) {
@@ -197,13 +196,13 @@ func (c *Capture) Restart(ctx context.Context) (*Interact, error) {
 	return c.Start(ctx, c.Name, c.Args...)
 }
 
-// Stop ends a Started capture.
-func (c *Capture) Stop() error {
+// Kill ends a Started capture.
+func (c *Capture) Kill() error {
 	if c.tmpCancel == nil || c.tmpCmd == nil {
 		return errors.New("command was not started")
 	}
 
-	err := c.doStop()
+	err := c.doKill()
 
 	c.ExitCode = errToExitCode(err)
 
@@ -217,57 +216,24 @@ func (c *Capture) Wait() error {
 		return errors.New("command was not started")
 	}
 
-	return c.tmpCmd.Wait()
+	err := c.tmpCmd.Wait()
+	if err != nil {
+		c.ExitCode = errToExitCode(err)
+	}
+
+	return err
 }
 
-func (c *Capture) doStop() error {
+func (c *Capture) doKill() error {
+	if c.tmpCancel == nil || c.tmpCmd == nil {
+		return errors.New("command was not started")
+	}
+
 	if c.tmpCancel != nil {
 		c.tmpCancel()
 	}
 
-	timeout := time.NewTimer(time.Second * 10)
-	ticker := time.NewTicker(time.Second)
-
-	if c.tmpCmd == nil {
-		return errors.New("wasn't running")
-	}
-
-	if c.tmpCmd.ProcessState == nil || c.tmpCmd.ProcessState.Exited() {
-		if c.tmpCmd.ProcessState != nil {
-			c.ExitCode = c.tmpCmd.ProcessState.ExitCode()
-		}
-
-		c.tmpCmd = nil
-
-		return nil // process is stopped
-	}
-
-	if c.tmpCmd.ProcessState.Exited() {
-		return nil
-	} else {
-		err := c.tmpCmd.Process.Kill()
-		if err != nil {
-			return err
-		}
-	}
-
-	for {
-		select {
-		case <-timeout.C:
-			ticker.Stop()
-
-			return errors.New("timeout reached")
-		case <-ticker.C:
-			if !c.tmpCmd.ProcessState.Exited() {
-				ticker.Stop()
-				timeout.Stop()
-
-				continue
-			}
-
-			return c.tmpCmd.Wait()
-		}
-	}
+	return c.tmpCmd.Wait()
 }
 
 // With allows a post-creation addition/modification to the internal

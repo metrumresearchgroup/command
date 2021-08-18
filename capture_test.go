@@ -352,10 +352,8 @@ func ExitCodeMatcher(t *T, want, got *command.Capture) {
 
 func TestStartStopWait(tt *testing.T) {
 	type args struct {
-		ctx  context.Context
-		dir  string
-		env  []string
-		name string
+		dir string
+		env []string
 	}
 
 	tests := []struct {
@@ -366,17 +364,40 @@ func TestStartStopWait(tt *testing.T) {
 	}{
 		{
 			name: "stop without start",
-			args: args{
-				ctx:  context.Background(),
-				name: "cat",
-			},
 			act: func(t *T, capture *command.Capture) (i *command.Interact, err error) {
-				err = capture.Stop()
+				err = capture.Kill()
 
 				return
 			},
 			test: func(t *T, capture *command.Capture, i *command.Interact, err error) {
 				t.R.WantError(true, err)
+			},
+		},
+		{
+			name: "bad command",
+			act: func(t *T, capture *command.Capture) (i *command.Interact, err error) {
+				i, err = capture.Start(context.Background(), "asdfasdfasdfasdfas")
+
+				return
+			},
+			test: func(t *T, capture *command.Capture, i *command.Interact, err error) {
+				t.R.WantError(true, err)
+				t.R.Equal(0, capture.ExitCode)
+			},
+		},
+		{
+			name: "exit 1",
+			act: func(t *T, capture *command.Capture) (i *command.Interact, err error) {
+				i, err = capture.Start(context.Background(), "sh", "exit", "1")
+				t.R.NoError(err)
+				err = i.Wait()
+				t.R.Error(err)
+
+				return
+			},
+			test: func(t *T, capture *command.Capture, i *command.Interact, err error) {
+				t.R.WantError(true, err)
+				t.R.Equal(127, capture.ExitCode)
 			},
 		},
 		{
@@ -388,8 +409,8 @@ func TestStartStopWait(tt *testing.T) {
 				t.A.NotNil(i)
 				t.A.NoError(err)
 
-				err = capture.Stop()
-				t.A.NoError(err)
+				err = capture.Kill()
+				t.A.Error(err)
 			},
 		},
 		{
@@ -424,7 +445,7 @@ func TestStartStopWait(tt *testing.T) {
 				pos, err := ioutil.ReadAll(i.Pipes().Stdout)
 				t.A.NoError(err)
 
-				err = capture.Stop()
+				err = capture.Kill()
 				t.A.NoError(err)
 
 				t.A.Equal([]byte("hello\n"), pos)
@@ -444,7 +465,7 @@ func TestStartStopWait(tt *testing.T) {
 				pos, err := io.ReadAll(i.Pipes().Stdout)
 				t.A.NoError(err)
 
-				err = capture.Stop()
+				err = capture.Kill()
 				t.A.NoError(err)
 
 				t.A.Equal("foo\n", string(pos))
@@ -467,7 +488,7 @@ func TestStartStopWait(tt *testing.T) {
 					t.A.NoError(err)
 				}
 
-				err = capture.Stop()
+				err = capture.Kill()
 				t.A.NoError(err)
 
 				t.A.Equal("foo\n", string(out))
@@ -484,9 +505,7 @@ func TestStartStopWait(tt *testing.T) {
 			t.R.NotNil(test.act)
 			t.R.NotNil(test.test)
 
-			var i *command.Interact
-			var err error
-			i, err = test.act(t, capture)
+			i, err := test.act(t, capture)
 
 			test.test(t, capture, i, err)
 		})

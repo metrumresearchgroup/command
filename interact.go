@@ -49,7 +49,7 @@ func (i *Interact) StderrScanner() *bufio.Scanner {
 type Controller interface {
 	// Stop immediately cancels the context and tries
 	// very hard to kill it.
-	Stop() error
+	Kill() error
 
 	// Wait calls the underlying Wait() function and
 	// will wait indefinitely until a process is finished.

@@ -60,6 +60,7 @@ func TestNewOptions(tt *testing.T) {
 				cmd := exec.Command("ls")
 				err := c.ModifierFunc(cmd)
 				t.R.NoError(err)
+
 				t.R.Equal("/tmp", cmd.Path)
 			},
 		},
