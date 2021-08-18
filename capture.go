@@ -155,8 +155,6 @@ func (c *Capture) Start(ctx context.Context, name string, args ...string) (*Inte
 		return i, err
 	}
 
-	c.tmpCmd = cmd
-
 	return i, nil
 }
 
@@ -180,6 +178,8 @@ func (c *Capture) doStart(cmd *exec.Cmd) (*Interact, error) {
 	if err = cmd.Start(); err != nil {
 		c.ExitCode = errToExitCode(err)
 	}
+
+	c.tmpCmd = cmd
 
 	return &Interact{
 		Plumber: &Pipes{
