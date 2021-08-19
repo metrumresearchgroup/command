@@ -390,6 +390,8 @@ func TestStartStopWait(tt *testing.T) {
 			act: func(t *T, capture *command.Capture) (i *command.Interact, err error) {
 				i, err = capture.Start(context.Background(), "sh", "exit", "1")
 				t.R.NoError(err)
+				err = i.CloseInput()
+				t.R.NoError(err)
 				err = i.Wait()
 				t.R.Error(err)
 
