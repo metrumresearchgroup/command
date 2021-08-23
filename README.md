@@ -9,7 +9,7 @@ The project's goal is ease of use when configuring, starting/stopping, and direc
 
 ## Use Cases
 
-Not knowing where to start with the sometimes daunting `*exec.Cmd`, you can use this library to simplify the process.
+Not knowing where to start with the sometimes daunting `*exec.Cmd`, you can use this library to simplify the process. The entry points are `New` and `NewWithContext`. You can Kill a process without knowing/caring how it gets done. 
 
 ## Usage
 
@@ -77,14 +77,17 @@ func (c *Cmd) Wait() error
 We added additional "Kill" functionality to the library for your convenience. As always, you can also cancel the context you're handing off to the Cmd if you want a shortcut.
 
 ```go
-// Kill immediately stops the process via context or signal, depending on how you set your command up.
+// Kill ends a process. Its operation depends on whether you created the Cmd
+// with a context or not.
 Kill() error
 
-// KillTimer waits on a Sleep before killing the process.
-KillTimer(d time.Duration)
+// KillTimer waits for the duration stated and then sends back the results
+// of calling Kill via the errCh channel.
+KillTimer(d time.Duration, errCh chan<- error)
 
-// KillAfter waits until the specified time is reached before closing.
-KillAfter(t time.Time)
+// KillAfter waits until the time stated and then sends back the results
+// of calling Kill via the errCh channel.
+KillAfter(t time.Time, errCh chan<- error)
 ```
 
 ## Testing
@@ -92,3 +95,7 @@ KillAfter(t time.Time)
 This package only depends upon our own [wrapt](https://github.com/metrumresearchgroup/wrapt/) testing library. Running `make test` is sufficient to verify its contents.
 
 We include .golangci.yml configuration and a .drone.yaml for quality purposes.
+
+## Demo
+
+There is a demo available that steps through different interaction modes in the `demo` directory of this project.

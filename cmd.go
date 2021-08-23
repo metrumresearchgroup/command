@@ -27,6 +27,8 @@ func NewWithContext(ctx context.Context, name string, args ...string) *Cmd {
 	}
 }
 
+// Kill ends a process. Its operation depends on whether you created the Cmd
+// with a context or not.
 func (c *Cmd) Kill() error {
 	if c.cancelFunc != nil {
 		c.cancelFunc()
@@ -44,6 +46,8 @@ func (c *Cmd) Kill() error {
 	return errors.New("not running")
 }
 
+// KillTimer waits for the duration stated and then sends back the results
+// of calling Kill via the errCh channel.
 func (c *Cmd) KillTimer(d time.Duration, errCh chan<- error) {
 	go func() {
 		time.Sleep(d)
@@ -51,6 +55,8 @@ func (c *Cmd) KillTimer(d time.Duration, errCh chan<- error) {
 	}()
 }
 
+// KillAfter waits until the time stated and then sends back the results
+// of calling Kill via the errCh channel.
 func (c *Cmd) KillAfter(t time.Time, errCh chan<- error) {
 	d := time.Until(t)
 	c.KillTimer(d, errCh)
