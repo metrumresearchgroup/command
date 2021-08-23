@@ -17,7 +17,7 @@ func main() {
 	fmt.Print("\n\tthis is a cat test with pipes\n")
 	piper()
 
-	fmt.Print("\n\tTHIS IS INTERACTIVE, use q(\"no\") to exit\n")
+	fmt.Print("\n\tTHIS IS INTERACTIVE, type something^M exit\n")
 	interact()
 
 	fmt.Print("\n\tINPUT is program-driven, from machine input\n")
@@ -39,22 +39,21 @@ func input() {
 	funcInput, writer, err := os.Pipe()
 	ee(err)
 
-	c := command.New("R", "--quiet", "--interactive")
+	c := command.New("read")
 
 	// apply the pipe to the program.
 	command.WireIO(funcInput, os.Stdout, os.Stderr).Apply(c)
 
 	ee(c.Start())
 
-	ee(fmt.Fprintln(writer, "2+2"))
-	ee(fmt.Fprintln(writer, `q("no")`))
+	ee(fmt.Fprintln(writer, "hello"))
 
 	ee(c.Wait())
 }
 
 // interact is is user interactive, it just uses the stdio pipes.
 func interact() {
-	c := command.New("R", "--quiet", "--interactive")
+	c := command.New("read")
 	command.InteractiveIO().Apply(c)
 	ee(c.Start())
 	ee(c.Wait())
@@ -88,7 +87,7 @@ func killTimeout() {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	c := command.NewWithContext(ctx, "R", "--quiet", "--interactive")
+	c := command.NewWithContext(ctx, "read")
 	command.InteractiveIO().Apply(c)
 
 	ee(c.Start())
@@ -97,7 +96,7 @@ func killTimeout() {
 
 // This example has a timer after which it will close.
 func useKillTimer() {
-	c := command.New("R", "--quiet", "--interactive")
+	c := command.New("read")
 	command.InteractiveIO().Apply(c)
 
 	ee(c.Start())
@@ -108,7 +107,7 @@ func useKillTimer() {
 
 // This example has a deadline of when it will close.
 func useKillAfter() {
-	c := command.New("R", "--quiet", "--interactive")
+	c := command.New("read")
 	command.InteractiveIO().Apply(c)
 
 	ee(c.Start())

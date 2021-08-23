@@ -60,7 +60,6 @@ type Cmd struct {
 	ProcessState *os.ProcessState
 }
 
-
 func (c *Cmd) CombinedOutput() ([]byte, error)
 func (c *Cmd) Output() ([]byte, error)
 func (c *Cmd) Run() error
