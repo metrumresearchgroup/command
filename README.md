@@ -1,48 +1,94 @@
 # command
 
-This package wraps the functionality of calling an `*exec.Cmd.CombinedOutput()`, capturing an easy-to-serialize result
-for either re-running, or writing out to disk.
+This package wraps the functionality of `*exec.Cmd` with some simple IO tools to make creating a `Cmd` easier. It provides
+the 
 
 ## Goal
 
 The project's goal is ease of use when configuring, starting/stopping, and directly capturing output of a `exec.Cmd` call.
 
-Its secondary goal is to allow us to re-run a command with its complete environment repeatedly.
-
 ## Use Cases
 
-1. Saving a pre-defined command, and executing it repeatedly.
-2. Checking applications for idempotence, with all environmental variability controlled by the package.
-3. Serializing the configuration for future use as JSON and reloading it at startup.
-
-## Structure
-
-```{go}
-type Capture struct {
-	Name string `json:"name"`
-	Args []string `json:"args,omitempty"`
-	Dir string `json:"dir,omitempty"`
-	Env []string `json:"env,omitempty"`
-	Output []byte `json:"output,omitempty"`
-	ExitCode int `json:"exit_code"`
-}
-```
-
-Most fields are `omitempty` because they disappear in certain situations. This cuts down noise on marshaling.
+Not knowing where to start with the sometimes daunting `*exec.Cmd`, you can use this library to simplify the process.
 
 ## Usage
 
-```{go}
-cmd := command.New(command.WithEnv([]string{"PATH=/bin"}))
-err := cmd.Run("echo", "hello world")
-if err != nil {
-    // re-capture output
-    err = r.Rerun()
+Simple interactive use:
+
+```go
+c := command.New("vi")
+command.InteractiveIO().Apply(c)
+_ = c.Start() // ignoring err for demonstration purposes
+_ = c.Wait() 
+```
+
+Programmatic input, standard output/err:
+
+```go
+reader, writer, _ := os.Pipe()
+c := cmd.New("vi")
+command.WireIO(reader, os.Stdout, os.Stderr).Apply(c)
+_ = c.Start()
+_, _ = fmt.Fprintln(writer, ":q!")
+_ = c.Wait()
+```
+
+If you want to use a context:
+```go
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel
+
+c := command.NewWithContext(ctx, "name", "arg1", …)
+
+```
+## Availability of base functionality
+
+Everything in `*exec.Cmd` is available. See the [official docs](https://pkg.go.dev/os/exec#Cmd) for expanded help:
+
+```go
+type Cmd struct {
+	Path string
+	Args []string
+	Env []string
+	Dir string
+	Stdin io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+	ExtraFiles []*os.File
+	SysProcAttr *syscall.SysProcAttr
+	Process *os.Process
+	ProcessState *os.ProcessState
 }
+
+
+func (c *Cmd) CombinedOutput() ([]byte, error)
+func (c *Cmd) Output() ([]byte, error)
+func (c *Cmd) Run() error
+func (c *Cmd) Start() error
+func (c *Cmd) StderrPipe() (io.ReadCloser, error)
+func (c *Cmd) StdinPipe() (io.WriteCloser, error)
+func (c *Cmd) StdoutPipe() (io.ReadCloser, error)
+func (c *Cmd) String() string
+func (c *Cmd) Wait() error
+```
+
+## Additional functionality
+
+We added additional "Kill" functionality to the library for your convenience. As always, you can also cancel the context you're handing off to the Cmd if you want a shortcut.
+
+```go
+// Kill immediately stops the process via context or signal, depending on how you set your command up.
+Kill() error
+
+// KillTimer waits on a Sleep before killing the process.
+KillTimer(d time.Duration)
+
+// KillAfter waits until the specified time is reached before closing.
+KillAfter(t time.Time)
 ```
 
 ## Testing
 
-This package is dependency free. Running `make test` is sufficient to verify its contents.
+This package only depends upon our own [wrapt](https://github.com/metrumresearchgroup/wrapt/) testing library. Running `make test` is sufficient to verify its contents.
 
 We include .golangci.yml configuration and a .drone.yaml for quality purposes.
