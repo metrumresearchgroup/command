@@ -1,7 +1,6 @@
 # command
 
-This package wraps the functionality of `*exec.Cmd` with some simple IO tools to make creating a `Cmd` easier. It provides
-the 
+This package wraps the functionality of `*exec.Cmd` with some simple IO tools to make creating a `Cmd` easier.
 
 ## Goal
 
