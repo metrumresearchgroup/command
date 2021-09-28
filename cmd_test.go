@@ -1,10 +1,9 @@
-package command
+package command_test
 
 import (
 	"context"
 	"errors"
 	"os"
-	"os/exec"
 	"os/user"
 	"strconv"
 	"syscall"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/metrumresearchgroup/wrapt"
+
+	. "github.com/metrumresearchgroup/command"
 )
 
 func TestCmd_Kill_not_running(tt *testing.T) {
@@ -80,17 +81,13 @@ func TestCmd_KillAfter(tt *testing.T) {
 }
 
 func TestCmd_Impersonate(tt *testing.T) {
-	type fields struct {
-		Cmd        *exec.Cmd
-		cancelFunc func()
-	}
 	type args struct {
 		username string
 		setPgid  bool
 	}
 	tests := []struct {
 		name            string
-		fields          fields
+		cmd             *Cmd
 		args            args
 		wantErr         bool
 		wantEnv         []string
@@ -98,9 +95,7 @@ func TestCmd_Impersonate(tt *testing.T) {
 	}{
 		{
 			name: "garbage username",
-			fields: fields{
-				Cmd: exec.Command("dummy"),
-			},
+			cmd:  New("dummy"),
 			args: args{
 				username: "asdfasdfsadf",
 				setPgid:  false,
@@ -109,9 +104,7 @@ func TestCmd_Impersonate(tt *testing.T) {
 		},
 		{
 			name: "empty username",
-			fields: fields{
-				Cmd: exec.Command("dummy"),
-			},
+			cmd:  New("dummy"),
 			args: args{
 				username: "",
 				setPgid:  false,
@@ -120,14 +113,12 @@ func TestCmd_Impersonate(tt *testing.T) {
 		},
 		{
 			name: "assign self to test",
-			fields: fields{
-				Cmd: func() *exec.Cmd {
-					cmd := exec.Command("dummy")
-					cmd.Env = []string{"BASE=ALL"}
+			cmd: func() *Cmd {
+				cmd := New("dummy")
+				cmd.Env = []string{"BASE=ALL"}
 
-					return cmd
-				}(),
-			},
+				return cmd
+			}(),
 			args: args{
 				username: func() string {
 					u, err := user.Current()
@@ -148,6 +139,9 @@ func TestCmd_Impersonate(tt *testing.T) {
 					panic(err)
 				}
 				u, err := user.Current()
+				if err != nil {
+					panic(err)
+				}
 				un := u.Username
 				return []string{
 					"BASE=ALL",
@@ -182,20 +176,15 @@ func TestCmd_Impersonate(tt *testing.T) {
 		tt.Run(test.name, func(tt *testing.T) {
 			t := wrapt.WrapT(tt)
 
-			c := &Cmd{
-				Cmd:        test.fields.Cmd,
-				cancelFunc: test.fields.cancelFunc,
-			}
-
-			err := c.Impersonate(test.args.username, test.args.setPgid)
+			err := test.cmd.Impersonate(test.args.username, test.args.setPgid)
 			t.R.WantError(test.wantErr, err)
 
 			if test.wantErr {
 				return
 			}
 
-			t.R.Equal(test.wantEnv, c.Env)
-			t.R.Equal(test.wantSysProcAttr, c.SysProcAttr)
+			t.R.Equal(test.wantEnv, test.cmd.Env)
+			t.R.Equal(test.wantSysProcAttr, test.cmd.SysProcAttr)
 		})
 	}
 }
