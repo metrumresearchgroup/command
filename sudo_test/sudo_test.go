@@ -19,11 +19,6 @@ func TestImpersonate_sudo(tt *testing.T) {
 
 	t.R.NoError(cmd.Impersonate(u.Name, false))
 
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Log(err)
-		t.FailNow()
-	}
-
-	t.Log(string(out))
+	_, err = cmd.CombinedOutput()
+	t.R.NoError(err)
 }
