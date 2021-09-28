@@ -9,9 +9,8 @@ steps:
   - name: test
     image: golang
     commands:
-      - go mod tidy
-      - go mod download
-      - go test -v ./...
+      - go list | grep -v sudo_test | xargs go test -v .
+      - su -c 'go test -v ./sudo_test'
 
   - name: lint
     image: golang:1.16

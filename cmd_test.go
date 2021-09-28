@@ -3,7 +3,6 @@ package command_test
 import (
 	"context"
 	"errors"
-	"os"
 	"os/user"
 	"strconv"
 	"syscall"
@@ -134,14 +133,19 @@ func TestCmd_Impersonate(tt *testing.T) {
 			},
 			wantErr: false,
 			wantEnv: func() []string {
-				home, err := os.UserHomeDir()
-				if err != nil {
-					panic(err)
-				}
 				u, err := user.Current()
 				if err != nil {
 					panic(err)
 				}
+				home := u.HomeDir
+				// home, err := os.UserHomeDir()
+				// if err != nil {
+				// 	panic(err)
+				// }
+				// u, err := user.Current()
+				// if err != nil {
+				// 	panic(err)
+				// }
 				un := u.Username
 				return []string{
 					"BASE=ALL",

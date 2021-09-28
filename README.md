@@ -70,7 +70,7 @@ func (c *Cmd) String() string
 func (c *Cmd) Wait() error
 ```
 
-## Additional functionality
+## Killing a process
 
 We added additional "Kill" functionality to the library for your convenience. As always, you can also cancel the context you're handing off to the Cmd if you want a shortcut.
 
@@ -87,6 +87,11 @@ KillTimer(d time.Duration, errCh chan<- error)
 // of calling Kill via the errCh channel.
 KillAfter(t time.Time, errCh chan<- error)
 ```
+
+## Impersonating a user
+
+You can impersonate a valid user by using the `Impersonate(username string) error` function:
+
 
 ## Testing
 
