@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	user "os/user"
+	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -60,4 +63,64 @@ func (c *Cmd) KillTimer(d time.Duration, errCh chan<- error) {
 func (c *Cmd) KillAfter(t time.Time, errCh chan<- error) {
 	d := time.Until(t)
 	c.KillTimer(d, errCh)
+}
+
+// Impersonate does a sets the SysProcAttrs to impersonate a permitted
+// user.
+func (c *Cmd) Impersonate(username string, setPgid bool) error {
+	usr, cred, err := userCredential(username)
+	if err != nil {
+		return err
+	}
+
+	c.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid:    setPgid,
+		Credential: cred,
+	}
+
+	if len(usr.Username) != 0 {
+		c.Env = append(c.Env, "USER="+usr.Username)
+	}
+
+	if len(usr.HomeDir) != 0 {
+		c.Env = append(c.Env, "HOME="+usr.HomeDir)
+	}
+
+	return nil
+}
+
+func userCredential(username string) (*user.User, *syscall.Credential, error) {
+	if len(username) == 0 {
+		return nil, nil, errors.New("username empty")
+	}
+
+	var (
+		u *user.User
+		c syscall.Credential
+	)
+	{
+		var err error
+
+		u, err = user.Lookup(username)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		uid, err := strconv.Atoi(u.Uid)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		gid, err := strconv.Atoi(u.Gid)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		c = syscall.Credential{
+			Uid: uint32(uid),
+			Gid: uint32(gid),
+		}
+	}
+
+	return u, &c, nil
 }
